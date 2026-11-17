@@ -23,7 +23,7 @@ function gearMatches(move, active) {
 }
 
 function partMatches(move, selected) {
-  return !selected.length || selected.includes(move.part);
+  return !move.hidden && (!selected.length || selected.includes(move.part));
 }
 
 function availableGear(selected, category) {
@@ -39,6 +39,7 @@ function availableGear(selected, category) {
 }
 
 function media(move, folder) {
+  if(move.localMedia?.[folder])return move.localMedia[folder];
   const suffix = move.mediaRevision ? '?v=' + encodeURIComponent(move.mediaRevision) : '';
   return mediaOrigin + '/moves/' + folder + '/' + move.sourceId + '.webp' + suffix;
 }
@@ -69,9 +70,9 @@ function pickView(filters, saved, limits) {
   const selected = filters.parts;
   const active = new Set(saved.active);
   const favorites = new Set(saved.favorites);
-  const gearResult = training.filter(move => gearMatches(move, active));
+  const gearResult = training.filter(move => !move.hidden && gearMatches(move, active));
   const matches = gearResult.filter(move => partMatches(move, selected));
-  const warm = warmups.filter(move => partMatches(move, selected) || selected.includes(move.warmPart));
+  const warm = warmups.filter(move => !move.hidden && (partMatches(move, selected) || selected.includes(move.warmPart)));
   const combined = matches.concat(warm);
   const categories = ['全部'].concat(warm.length ? ['热身'] : [], Array.from(new Set(combined.map(move => move.muscle))));
   const category = categories.includes(filters.category) ? filters.category : '全部';

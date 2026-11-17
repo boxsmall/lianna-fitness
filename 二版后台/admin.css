@@ -1,0 +1,161 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f8f9f6;
+  color: #22302b;
+  font:
+    16px/1.6 Inter,
+    'Microsoft YaHei',
+    sans-serif;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 64px;
+  background: #173e34;
+  color: white;
+  padding: 0 5vw;
+}
+header strong {
+  font-size: 28px;
+}
+#who {
+  margin-left: auto;
+}
+#shell:not([hidden]) {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  max-width: 1500px;
+  margin: auto;
+}
+main {
+  padding: 24px 4vw 60px;
+  min-width: 0;
+}
+nav {
+  padding: 32px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+button,
+select,
+input,
+textarea {
+  font: inherit;
+  border: 1px solid #ccd4cc;
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: white;
+  color: #19372e;
+}
+button {
+  cursor: pointer;
+}
+button:hover,
+nav .on {
+  background: #e1eee4;
+}
+nav button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 12px;
+}
+.primary {
+  background: #245b48;
+  color: white;
+}
+.primary:hover {
+  background: #174532;
+}
+h1 {
+  font-size: 30px;
+}
+h2 {
+  font-size: 20px;
+}
+label {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+}
+.box,
+form {
+  padding: 20px;
+  background: white;
+  border: 1px solid #dbe1d9;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+textarea {
+  width: 100%;
+  min-height: 180px;
+  font:
+    14px/1.5 'IBM Plex Mono',
+    monospace;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 480px;
+  overflow: auto;
+}
+#login {
+  max-width: 480px;
+  margin: 7vh auto;
+}
+#notice:not(:empty) {
+  position: fixed;
+  bottom: 20px;
+  right: 22px;
+  padding: 12px 20px;
+  background: #253f36;
+  color: white;
+  border-radius: 8px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+td,
+th {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #dde4df;
+}
+img {
+  max-width: 32%;
+  height: auto;
+}
+summary {
+  cursor: pointer;
+}
+small {
+  color: #52665a;
+}
+@media (max-width: 740px) {
+  #shell:not([hidden]) {
+    display: block;
+  }
+  nav {
+    flex-direction: row;
+    overflow: auto;
+    padding: 12px;
+  }
+  nav button {
+    white-space: nowrap;
+  }
+  main {
+    padding: 14px;
+  }
+}

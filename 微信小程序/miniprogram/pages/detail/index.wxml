@@ -13,6 +13,6 @@
     <view class="heading">动作说明</view>
     <view wx:for="{{move.steps}}" wx:key="order" class="step"><text class="step-number">{{item.order}}</text><text>{{item.text}}</text></view>
   </view>
-  <view class="dock"><view wx:if="{{hint}}" class="saved-hint">{{hint}}</view><button class="primary" bindtap="favorite">{{favorite ? '已收藏 · 取消收藏' : '加入收藏'}}</button></view>
+  <button class="link" bindtap="addToPlan">加入训练计划</button><view class="dock"><view wx:if="{{hint}}" class="saved-hint">{{hint}}</view><button class="primary" bindtap="favorite">{{favorite ? '已收藏 · 取消收藏' : '加入收藏'}}</button></view>
 </view>
 <view wx:else class="empty">未找到这个动作。<view><button class="link" bindtap="pick">去挑动作</button></view></view>

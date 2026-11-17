@@ -12,6 +12,7 @@ Component({
     save() {
       if (toggleFavorite(this.data.move.id)) this.triggerEvent('changed');
     },
+    addToPlan(){wx.navigateTo({url:'/pages/week/index?add='+encodeURIComponent(this.data.move.id)});},
     coverFailed() {
       this.setData({ broken: true });
     }

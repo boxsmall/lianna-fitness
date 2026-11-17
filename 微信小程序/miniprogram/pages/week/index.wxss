@@ -1,0 +1,2 @@
+.picks label{display:inline-flex;align-items:center;min-height:64rpx}
+.segment .link + .link{margin-left:12rpx}

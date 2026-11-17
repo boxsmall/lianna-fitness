@@ -25,3 +25,10 @@ button[disabled]{color:#8a919e}
 .primary{width:100%;min-height:88rpx;border-radius:12rpx;background:#2448d8;color:#fff;display:flex;justify-content:center;align-items:center;font-size:30rpx;font-weight:650}
 .dock{position:fixed;z-index:2;left:0;right:0;bottom:0;background:#fbfaf7;border-top:1rpx solid #d9dde4;padding:14rpx 28rpx;padding-bottom:calc(14rpx + env(safe-area-inset-bottom))}
 .with-dock{padding-bottom:calc(146rpx + env(safe-area-inset-bottom))}
+
+.vcard{background:#fff;border:1rpx solid #dce1e1;border-radius:20rpx;padding:26rpx;margin:20rpx 0}
+.vcard .primary{margin-top:20rpx}.vrow{display:block;text-align:left;padding:18rpx 0;border-bottom:1rpx solid #e6e9e8}
+.dateline{font-size:26rpx;color:#536475;padding:16rpx 0}.energy{font-weight:700;font-size:42rpx}
+.picks{display:flex;align-items:center;gap:12rpx;flex-wrap:wrap;margin:18rpx 0}.picks input{width:165rpx}
+.field{min-height:76rpx;padding:12rpx 16rpx;margin:8rpx 0 18rpx;background:#f5f6f8;border:1rpx solid #d6dce1;border-radius:10rpx;font-size:28rpx}
+.segment{padding:14rpx 0 20rpx;border-bottom:1rpx solid #dce1e4}.error{color:#933b29;font-size:27rpx;line-height:1.5;margin:12rpx 0}

@@ -1,0 +1,2 @@
+.vcard .heading:not(:first-child){margin-top:32rpx}
+textarea.field{width:100%;min-height:148rpx}

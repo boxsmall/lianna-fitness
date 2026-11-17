@@ -8,7 +8,7 @@ Page({
     const snapshot = storage.read();
     const favorites = new Set(snapshot.favorites);
     const active = new Set(snapshot.active);
-    const items = exercises.filter(move => favorites.has(move.id));
+    const items = exercises.filter(move => !move.hidden && favorites.has(move.id));
     const buckets = new Map();
     for (const move of items) {
       if (!buckets.has(move.part)) buckets.set(move.part, []);

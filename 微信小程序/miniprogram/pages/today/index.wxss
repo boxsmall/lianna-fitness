@@ -1,0 +1,2 @@
+.vcard .energy{margin-top:12rpx}
+.vcard .vrow:last-child{border-bottom:0}

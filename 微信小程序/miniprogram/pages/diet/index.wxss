@@ -1,0 +1,3 @@
+.segment .link{margin-right:14rpx}
+.segment .vrow{width:100%}
+.picks .field{flex:1;min-width:150rpx}

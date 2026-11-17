@@ -10,3 +10,5 @@
 .save{width:84rpx;height:88rpx;margin:0;padding:0;justify-content:center;border:0;background:transparent}
 .save image{width:38rpx;height:38rpx}
 .save::after{border:none}
+
+.plan-add{font-size:34rpx;color:#52647d;min-width:58rpx;min-height:70rpx}

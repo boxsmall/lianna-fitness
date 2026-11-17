@@ -1,0 +1,26 @@
+<view class="screen">
+  <view class="header">
+    <view class="title">今天</view>
+    <button class="link" bindtap="account">我的</button>
+  </view>
+  <view class="dateline">{{date}}</view>
+  <view class="vcard">
+    <view class="heading">{{session ? session.type : hasWeek ? '今天休息' : '本周训练'}}</view>
+    <view wx:if="{{session}}" class="muted">{{session.items.length}} 个动作 · {{session.status}}</view>
+    <view wx:elif="{{!hasWeek}}" class="muted">用已有器械和收藏安排本周训练。</view>
+    <button class="primary" bindtap="week">{{hasWeek ? '查看训练与周计划' : '创建周计划'}}</button>
+  </view>
+  <view class="vcard">
+    <view class="heading">今日饮食</view>
+    <view class="energy" wx:if="{{profile}}">{{profile.targets.kcal}} 千卡</view>
+    <block wx:if="{{profile}}">
+      <button wx:for="{{meals}}" wx:key="index" class="vrow" data-index="{{item.index}}" bindtap="diet">
+        <view>{{item.name}} · {{item.kcal}} 千卡　›</view>
+        <view class="muted">碳水 {{item.carb}} g · 蛋白质 {{item.protein}} g · 脂肪 {{item.fat}} g</view>
+      </button>
+    </block>
+    <button wx:else class="link" bindtap="diet">设置饮食目标　›</button>
+  </view>
+  <button class="vrow" bindtap="pick">浏览动作库　›</button>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+</view>

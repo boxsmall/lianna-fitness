@@ -1,5 +1,14 @@
 const { gearList, byId } = require('./catalog');
-const key = 'lianna.preferences.v1';
+const guestKey = 'lianna.preferences.v1';
+let key=guestKey;
+function useAccount(id,prefs,rev) {
+  key=id?'lianna.preferences.account.'+id:guestKey;snapshot=null;
+  if(id&&prefs){const data=normalize(prefs);wx.setStorageSync(key,{...data,base:data,rev,dirty:false});snapshot=data;}
+}
+function resume(){const s=wx.getStorageSync('lianna.session.v2');if(s&&wx.getStorageSync('lianna.preferences.account.'+s.accountId))useAccount(s.accountId);}
+function savedBase(){return wx.getStorageSync(key)?.base||null;}
+function dirty(){return !!wx.getStorageSync(key)?.dirty;}
+function inAccount(){return key!==guestKey;}
 const equipment = new Set(gearList);
 let snapshot;
 
@@ -35,7 +44,8 @@ function write(data) {
   }
   const next = normalize(data);
   try {
-    wx.setStorageSync(key, next);
+    const old=wx.getStorageSync(key)||{};
+    wx.setStorageSync(key, inAccount()?{...next,base:old.base,rev:old.rev,dirty:true}:next);
   } catch (error) {
     wx.showToast({ title: '本地保存失败，请重试', icon: 'none' });
     return false;
@@ -61,4 +71,4 @@ function toggleFavorite(id) {
   return true;
 }
 
-module.exports = { read, saveGear, toggleFavorite };
+module.exports = { read, saveGear, toggleFavorite, useAccount, resume, dirty, inAccount, savedBase };

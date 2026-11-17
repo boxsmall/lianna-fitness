@@ -10,7 +10,7 @@
       <view class="meta hint" wx:if="{{move.favoriteHint}}">{{move.favoriteHint}}</view>
     </view>
   </view>
-  <button class="save" bindtap="save" aria-label="{{move.favorite ? '取消收藏' : '收藏'}}{{move.name}}">
+  <button class="plan-add" bindtap="addToPlan" aria-label="加入训练计划">＋</button><button class="save" bindtap="save" aria-label="{{move.favorite ? '取消收藏' : '收藏'}}{{move.name}}">
     <image src="{{move.favorite ? '/assets/saved-on.png' : '/assets/saved.png'}}" mode="aspectFit"/>
   </button>
 </view>

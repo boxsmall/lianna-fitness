@@ -1,0 +1,86 @@
+<view class="screen">
+  <view class="title">饮食搭配</view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+  <view wx:if="{{editing}}" class="vcard">
+    <view class="heading">饮食资料</view>
+    <picker range="{{sexes}}" data-k="sex" data-list="sexes" bindchange="pick">
+      <view class="field">{{form.sex||'选择性别'}} ▾</view>
+    </picker>
+    <label>身高（cm）<input class="field" type="digit" value="{{form.height}}" data-k="height" bindinput="input"/>
+  </label>
+  <label>体重（kg）<input class="field" type="digit" value="{{form.weight}}" data-k="weight" bindinput="input"/>
+</label>
+<label>过敏原（选填）<input class="field" placeholder="花生、牛奶等，多个用逗号分隔" value="{{form.allergens}}" data-k="allergens" bindinput="input"/>
+</label>
+<label>忌口（选填）<input class="field" placeholder="例如猪肉" value="{{form.avoid}}" data-k="avoid" bindinput="input"/>
+</label>
+<view class="vrow">帮我估算每日能量 <switch checked="{{form.estimate}}" data-k="estimate" bindchange="input"/>
+</view>
+<block wx:if="{{form.estimate}}">
+<label>年龄<input class="field" type="number" value="{{form.age}}" data-k="age" bindinput="input"/>
+</label>
+<picker range="{{levels}}" data-k="activity" data-list="levels" bindchange="pick">
+<view class="field">日常活动水平 · {{form.activity}} ▾</view>
+</picker>
+<view>我是一般健康成年人，非孕哺期且无医嘱饮食限制 <switch checked="{{form.generalAdult}}" data-k="generalAdult" bindchange="input"/>
+</view>
+</block>
+<label wx:else>已有每日能量目标（千卡）<input class="field" type="digit" value="{{form.kcal}}" data-k="kcal" bindinput="input"/>
+</label>
+<view class="muted">已有三类营养目标时一并填写（克）</view>
+<view class="picks">
+<input class="field" type="digit" placeholder="碳水" value="{{form.carb}}" data-k="carb" bindinput="input"/>
+<input class="field" type="digit" placeholder="蛋白质" value="{{form.protein}}" data-k="protein" bindinput="input"/>
+<input class="field" type="digit" placeholder="脂肪" value="{{form.fat}}" data-k="fat" bindinput="input"/>
+</view>
+<label>早、午、晚餐比例（%）<input class="field" value="{{form.ratios}}" data-k="ratios" bindinput="input"/>
+</label>
+<button class="primary" bindtap="saveProfile">确认目标并保存</button>
+</view>
+<block wx:else>
+<view class="between">
+<view class="dateline">{{date}}</view>
+<button class="link" bindtap="edit">饮食资料</button>
+</view>
+<view class="tabs-inner">
+<button wx:for="{{mealNames}}" wx:key="*this" class="tab {{index===itemIndex?'on':''}}" wx:for-index="itemIndex" data-i="{{itemIndex}}" bindtap="changeMeal">{{item}}</button>
+</view>
+<view class="vcard">
+<view class="heading">{{mealNames[index]}}</view>
+<view wx:for="{{metrics}}" wx:key="name" class="vrow">{{item.name}}　目标 {{item.target}}{{item.unit}} · 当前 {{item.actual}} · {{item.deltaText}}</view>
+</view>
+<view class="vcard">
+<view class="heading">食材与份量</view>
+<view wx:if="{{!hasFoods}}" class="muted">当前没有已发布且符合限制的食材。</view>
+<button class="link" disabled="{{!hasFoods}}" bindtap="openFoods">选择食材 ＋</button>
+<button class="link" bindtap="suggest">推荐搭配</button>
+<view wx:if="{{showFoods}}" class="segment">
+<view class="between">
+<view class="subheading">{{replaceId?'选择替换食材':'选择食材'}}</view>
+<button class="link" bindtap="closeFoods">收起</button>
+</view>
+<scroll-view scroll-y style="height:410rpx">
+<button wx:for="{{foods}}" wx:key="id" class="vrow" data-id="{{item.id}}" bindtap="selectFood">{{item.name}} · {{item.state}}</button>
+</scroll-view>
+</view>
+<view wx:for="{{recommendations}}" wx:key="id">
+<button class="link" data-id="{{item.id}}" bindtap="add">{{item.name}} · {{item.reason}}</button>
+</view>
+<view wx:for="{{result.rows}}" wx:key="id" class="segment">
+<view class="subheading">{{item.name}}　{{item.grams}} g</view>
+<view class="muted">{{item.state}} · {{item.locked===null?'建议重量':'已锁定'}}</view>
+<input class="field" type="digit" placeholder="输入已称重量（克）" data-id="{{item.id}}" bindinput="grams"/>
+<button class="link" data-id="{{item.id}}" data-op="lock" bindtap="row">锁定重量</button>
+<button class="link" data-id="{{item.id}}" data-op="unlock" bindtap="row">解锁</button>
+<button class="link" data-id="{{item.id}}" data-op="remove" bindtap="row">移除</button>
+<button class="link" data-id="{{item.id}}" bindtap="openFoods">换食材</button>
+</view>
+<button class="primary" bindtap="save">保存本餐搭配</button>
+</view>
+<view wx:if="{{history}}" class="vcard">
+<view class="heading">上次保存</view>
+<view wx:for="{{history.rows}}" wx:key="id">{{item.name}} · {{item.grams}} g</view>
+<view class="muted">{{history.actual.kcal}} 千卡 · 食材版本 {{history.foodsVersion}}</view>
+</view>
+</block>
+</view>

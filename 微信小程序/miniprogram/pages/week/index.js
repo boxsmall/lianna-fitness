@@ -1,0 +1,331 @@
+const api = require('../../lib/service'),
+  storage = require('../../lib/storage');
+const { byId } = require('../../lib/catalog');
+const names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+Page({
+  data: {
+    goals: ['增肌', '减脂', '日常健身'],
+    daysList: [1, 2, 3, 4, 5, 6, 7],
+    minutesList: [15, 20, 30, 45, 60, 90],
+    goal: '日常健身',
+    days: 3,
+    minutes: 30,
+    gear: [],
+    weekdays: [],
+    dayOptions: names,
+    experience: '基础',
+    experiences: ['基础', '有经验'],
+    useFour: false,
+    blank: false,
+    start: '',
+    date: '',
+    preview: null,
+    session: null,
+    rows: [],
+    edit: null,
+    addId: '',
+    error: '',
+    busy: false
+  },
+  onLoad(opts) {
+    this.setData({
+      start: api.monday(opts.date||api.localDate()),
+      date: opts.date||api.localDate(),
+      addId: opts.add || '',
+      gear: storage.read().owned
+    });
+  },
+  async onShow() {
+    this.draw();
+    if (api.credentials())
+      try {
+        await api.refresh();
+        this.draw();
+      } catch (e) {
+        this.setData({ error: e.message });
+      }
+  },
+  draw() {
+    const a = api.state();
+    const { start, date, preview } = this.data;
+    const sessions = preview ? preview.sessions : a?.sessions || {};
+    const s = sessions[date];
+    const rows = Array.from({ length: 7 }, (_, i) => {
+      const d = api.shift(start, i),
+        x = sessions[d];
+      return { date: d, weekday: names[i], type: x?.type || '休息', active: d === date };
+    });
+    const items = (s?.items || []).map((m) => {
+      const actual = s.actual?.[m.key] || [];
+      const previous = (a?.history || [])
+        .slice()
+        .reverse()
+        .flatMap((t) => Object.values(t.actual || {}).flat())
+        .find((v) => v.id === m.id);
+      return {
+        ...m,
+        done: actual.length,
+        previous: previous
+          ? previous.value +
+            previous.unit +
+            (previous.weight != null ? ' · ' + previous.weight + ' kg' : '')
+          : '',
+        actual: actual.map((g) => g.value + g.unit).join('、')
+      };
+    });
+    const time = s?.timing || {};
+    this.setData({
+      gearLabel: this.data.gear.join('、') || '徒手',
+      rows,
+      session: s || null,
+      items,
+      totalMinutes: Math.ceil((time.total || 0) / 60),
+      hasWeek: !!a?.weeks[start],
+      manualDays: this.data.days > 4,
+      addName: byId.get(this.data.addId)?.name || '',
+      edit: null
+    });
+  },
+  field(e) {
+    const k = e.currentTarget.dataset.k,
+      v = e.detail.value;
+    this.setData({ [k]: v, preview: null });
+    this.draw();
+  },
+  choose(e) {
+    const { k, list } = e.currentTarget.dataset;
+    this.setData({ [k]: this.data[list][Number(e.detail.value)], preview: null });
+    this.draw();
+  },
+  weekdays(e) {
+    this.setData({ weekdays: e.detail.value.map(Number), preview: null });
+    this.draw();
+  },
+  gear() {
+    wx.navigateTo({
+      url:
+        '/pages/equipment/index?from=plan&gear=' +
+        encodeURIComponent(JSON.stringify(this.data.gear)),
+      events: {
+        applied: (gear) => {
+          this.setData({ gear, preview: null });
+          this.draw();
+        }
+      }
+    });
+  },
+  bodyweight() {
+    this.setData({ gear: [], preview: null });
+    this.draw();
+  },
+  input() {
+    const d = this.data;
+    return {
+      start: d.start,
+      goal: d.goal,
+      days: d.days,
+      minutes: d.minutes,
+      gear: d.gear,
+      experience: d.experience,
+      weekdays: d.weekdays,
+      useFour: d.useFour,
+      blank: d.blank,
+      anchor: Object.keys(api.state()?.weeks || {}).sort()[0] || d.start,
+      favorites: storage.read().favorites
+    };
+  },
+  generate() {
+    api.run(this, async () => {
+      const preview = await api.request('preview/plan', this.input());
+      this.setData({
+        preview,
+        date: preview.dates.find((d) => preview.sessions[d]) || preview.start
+      });
+      this.draw();
+    });
+  },
+  save() {
+    api.run(this, async () => {
+      if (!(await api.login())) return;
+      const input = this.input(),
+        p = await api.request('preview/plan', input);
+      const describe = (p) =>
+        JSON.stringify(
+          p.dates.map((day) => {
+            const s = p.sessions[day];
+            return s ? [day, s.type, s.items.map((i) => [i.id, i.sets, i.target, i.rest])] : [day];
+          })
+        );
+      if (!this.data.preview || describe(this.data.preview) !== describe(p)) {
+        this.setData({ preview: p });
+        this.draw();
+        throw Error('登录同步或内容发布后安排已变化，请查看新预览再确认。');
+      }
+      const msg = (p.replaced || [])
+        .map((x) => x.date + (x.manual ? '（手动调整）' : ''))
+        .join('、');
+      if (
+        !(await api.confirm(
+          '保存本周计划',
+          msg ? '这些待训练日期将被替换：' + msg : '保存从 ' + p.start + ' 开始的七天安排？'
+        ))
+      )
+        return;
+      await api.mutate('savePlan', { input, version: p.version });
+      this.setData({ preview: null });
+      this.draw();
+    });
+  },
+  cancel() {
+    this.setData({ preview: null });
+    this.draw();
+  },
+  week(e) {
+    const start = api.shift(this.data.start, Number(e.currentTarget.dataset.n));
+    this.setData({ start, date: start, preview: null });
+    this.draw();
+  },
+  select(e) {
+    this.setData({ date: e.currentTarget.dataset.date });
+    this.draw();
+  },
+  demo(e) {
+    wx.navigateTo({ url: '/pages/detail/index?id=' + e.currentTarget.dataset.id });
+  },
+  async commit(action, data) {
+    await api.mutate(action, { date: this.data.date, ...data });
+    this.draw();
+  },
+  train(e) {
+    api.run(this, async () => {
+      const action = e.currentTarget.dataset.action;
+      if (
+        action === 'finish' &&
+        !(await api.confirm('结束训练', '按已实际记录的组数完成本节训练？'))
+      )
+        return;
+      await this.commit(action, {});
+    });
+  },
+  move(e) {
+    api.run(this, async () => {
+      const to = e.detail.value,
+        old = this.data.date,
+        a = api.state();
+      if (to === old) return;
+      const other = a.sessions[to];
+      const within = api.monday(to) === api.monday(old);
+      const near = [api.shift(to, -1), api.shift(to, 1)].filter(
+        (d) =>
+          d !== old &&
+          a.sessions[d]?.items.some((i) =>
+            this.data.session.items.some((j) => byId.get(i.id)?.part === byId.get(j.id)?.part)
+          )
+      );
+      const w1 = api.monday(old),
+        w2 = api.monday(to),
+        count = (w) => Object.keys(a.sessions).filter((d) => api.monday(d) === w).length;
+      const totals =
+        w1 !== w2 && !other
+          ? '。调整后原周 ' + (count(w1) - 1) + ' 天，下周 ' + (count(w2) + 1) + ' 天'
+          : '';
+      if (
+        !(await api.confirm(
+          '调整日期',
+          old +
+            ' → ' +
+            to +
+            totals +
+            (other && within ? '，与目标日交换' : '') +
+            (near.length ? '。相邻训练日有重复部位：' + near.join('、') : '') +
+            '？'
+        ))
+      )
+        return;
+      await this.commit('move', { to, swap: !!other && within });
+      this.setData({ start: api.monday(to), date: to });
+      this.draw();
+    });
+  },
+  editor(e) {
+    const m = this.data.items.find((x) => x.key === e.currentTarget.dataset.key);
+    this.setData({ edit: { ...m, value: m.target, weight: '', future: false }, candidates: [] });
+  },
+  editField(e) {
+    this.setData({ ['edit.' + e.currentTarget.dataset.k]: e.detail.value });
+  },
+  closeEdit() {
+    this.setData({ edit: null });
+  },
+  async scope(b) {
+    const m = this.data.edit;
+    if (!m.future) return true;
+    const dates = Object.values(api.state().sessions)
+      .filter(
+        (x) =>
+          x.date > this.data.date &&
+          x.status === '待训练' &&
+          x.type === this.data.session.type &&
+          x.items.some((i) => i.id === m.id)
+      )
+      .map((x) => x.date);
+    return api.confirm('确认影响日期', [this.data.date, ...dates].join('、'));
+  },
+  apply(e) {
+    api.run(this, async () => {
+      const action = e.currentTarget.dataset.action,
+        m = this.data.edit;
+      const b = { key: m.key };
+      if (action === 'edit') {
+        Object.assign(b, { sets: Number(m.sets), target: Number(m.target), future: m.future });
+        if (!(await this.scope(b))) return;
+      }
+      if (action === 'record')
+        Object.assign(b, {
+          value: Number(m.value),
+          weight: m.weight === '' ? null : Number(m.weight)
+        });
+      if (action === 'remove' && !(await api.confirm('移除动作', m.name))) return;
+      if (action === 'reorder') {
+        const i = this.data.items.findIndex((x) => x.key === m.key);
+        b.index = i - 1;
+      }
+      if (action === 'replace') {
+        Object.assign(b, { id: e.currentTarget.dataset.id, future: m.future });
+        if (!(await this.scope(b))) return;
+      }
+      await this.commit(action, b);
+    });
+  },
+  replacements() {
+    api.run(this, async () => {
+      const m = this.data.edit,
+        gear = api.state().weeks[this.data.start]?.gear || storage.read().owned;
+      const candidates = await api.request('replacements', { id: m.id, gear });
+      this.setData({ candidates });
+      if (!candidates.length) this.setData({ error: '没有器械匹配的同模式替代动作。' });
+    });
+  },
+  add() {
+    api.run(this, async () => {
+      if (!(await api.login())) return;
+      const id = this.data.addId,
+        m = byId.get(id);
+      if (!m) return;
+      const gear = api.state().weeks[this.data.start]?.gear || storage.read().owned;
+      const missing = m.gear.filter(
+        (g) => !gear.includes(g) && !(m.alternatives?.[g] || []).some((v) => gear.includes(v))
+      );
+      if (
+        missing.length &&
+        !(await api.confirm('所需器械不足', '缺少' + missing.join('、') + '。仍加入这天的计划？'))
+      )
+        return;
+      await this.commit('add', { id, confirmGear: !!missing.length });
+      this.setData({ addId: '' });
+    });
+  },
+  browse() {
+    wx.switchTab({ url: '/pages/pick/index' });
+  }
+});

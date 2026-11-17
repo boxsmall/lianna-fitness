@@ -5,12 +5,13 @@ const choices = ['全部分类'].concat(groups);
 
 Page({
   data: { mode: 'active', query: '', choices, groupIndex: 0, groups: [] },
-  onLoad() {
+  onLoad(options={}) {
     const saved = storage.read();
-    this.active = new Set(saved.active);
+    this.forPlan=options.from==='plan';
+    this.active = new Set(this.forPlan?JSON.parse(decodeURIComponent(options.gear||'%5B%5D')):saved.active);
     this.owned = new Set(saved.owned);
     const filters = getApp().globalData.filters;
-    this.allowed = availableGear(filters.parts, filters.category);
+    this.allowed = this.forPlan?new Set(gearList):availableGear(filters.parts, filters.category);
     this.refresh();
   },
   refresh() {
@@ -64,9 +65,9 @@ Page({
   },
   clear() { this.active.clear(); this.refresh(); },
   save() {
-    if (!storage.saveGear(Array.from(this.owned), Array.from(this.active))) return;
+    if (!this.forPlan && !storage.saveGear(Array.from(this.owned), Array.from(this.active))) return;
     const channel = this.getOpenerEventChannel();
-    if (channel && channel.emit) channel.emit('applied');
+    if (channel && channel.emit) channel.emit('applied',Array.from(this.active));
     wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/pick/index' }) });
   }
 });

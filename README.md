@@ -29,6 +29,10 @@ python3 -m http.server 8000 --directory "网站代码/dist"
 
 原版训练媒体署名为 © Gym visual — https://gymvisual.com/ 。素材使用条件见[原项目许可](动作库/原版项目/LICENSE)和[媒体署名说明](动作库/原版项目/NOTICE.zh-CN.md)。
 
+## 二版开发
+
+二版小程序从「今天」进入周训练和三餐搭配，账号、排课、份量计算及内容审核由同一业务服务提供。开发和测试使用 Node.js 24。[本机启动与管理后台](二版后台/README.md)
+
 ## 微信小程序
 
 [小程序源码与异机导入说明](微信小程序/README.md)。在微信开发者工具中导入含有 `project.config.json` 的 `微信小程序` 目录。

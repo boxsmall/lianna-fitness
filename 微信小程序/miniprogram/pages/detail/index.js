@@ -4,7 +4,7 @@ Page({
   data: { move: null, status: 'loading', animation: '' },
   onLoad(options) {
     const move = byId.get(options.id);
-    if (!move) return;
+    if (!move || move.hidden) return;
     this.move = move;
     const saved = storage.read();
     this.setData({
@@ -26,7 +26,8 @@ Page({
     this.setData({ status: 'loading', animation });
   },
   loaded() { this.setData({ status: 'ready' }); },
-  failed() { this.setData({ status: 'error', animation: '' }); },
+  failed() { this.setData({ status: 'error', animation: '' }); require('../../lib/service').request('media/error',{id:this.move.sourceId}).catch(()=>{}); },
+  addToPlan(){wx.navigateTo({url:'/pages/week/index?add='+encodeURIComponent(this.move.id)});},
   favorite() {
     if (storage.toggleFavorite(this.move.id)) {
       this.setData({ favorite: storage.read().favorites.includes(this.move.id) });

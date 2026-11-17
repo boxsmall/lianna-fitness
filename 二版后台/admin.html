@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>练哪 · 管理后台</title>
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <header>
+      <strong>练哪</strong><span>管理后台</span><span id="who"></span
+      ><button id="exit" hidden>退出</button>
+    </header>
+    <main id="login">
+      <form id="sign">
+        <h1>登录管理后台</h1>
+        <label>账号<input name="name" autocomplete="username" required /></label
+        ><label
+          >密码<input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required /></label
+        ><button class="primary">登录</button>
+      </form>
+    </main>
+    <div id="shell" hidden>
+      <nav id="nav"></nav>
+      <main>
+        <h1 id="title"></h1>
+        <section id="body"></section>
+      </main>
+    </div>
+    <div role="status" id="notice"></div>
+    <script src="/admin.js"></script>
+  </body>
+</html>

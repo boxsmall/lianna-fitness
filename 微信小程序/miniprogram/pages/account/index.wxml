@@ -1,0 +1,24 @@
+<view class="screen">
+  <view class="title">我的</view>
+  <view class="vcard">
+    <view class="heading">{{logged?'已登录':'游客'}}</view>
+    <button wx:if="{{!logged}}" class="primary" bindtap="login">微信登录</button>
+    <block wx:else>
+      <button class="vrow" bindtap="sync">同步收藏与器械 / 重试同步</button>
+      <button class="vrow" bindtap="logout">退出账号</button>
+    </block>
+  </view>
+  <view wx:if="{{logged}}" class="vcard">
+    <view class="heading">训练记录</view><button wx:for="{{history}}" wx:key="key" class="vrow" data-date="{{item.date}}" bindtap="record">{{item.date}} · {{item.type}} · 实际 {{item.sets}} 组　›</button><view wx:if="{{!history.length}}" class="muted">暂无已完成的训练。</view><view class="heading">反馈与账号</view>
+    <picker range="{{meals}}" range-key="name" bindchange="meal">
+      <view class="field">{{mealRef||'关联已保存餐次（选填）'}} ▾</view>
+    </picker>
+    <textarea class="field" placeholder="简述问题，可附动作编号或餐次" bindinput="text"/>
+    <view class="vrow">允许指定客服查看此工单所需饮食资料 <switch bindchange="consent"/>
+  </view>
+  <button class="link" data-kind="反馈" bindtap="submit">提交反馈</button>
+  <button class="link" data-kind="注销" bindtap="submit">申请注销</button>
+  <view wx:for="{{tickets}}" wx:key="id" class="vrow">#{{item.id}}　{{item.kind}} · {{item.status}}</view>
+</view>
+<view class="error">{{error}}</view>
+</view>

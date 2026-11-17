@@ -1,5 +1,14 @@
 {
-  "pages": ["pages/pick/index", "pages/saved/index", "pages/equipment/index", "pages/detail/index"],
+  "pages": [
+    "pages/today/index",
+    "pages/pick/index",
+    "pages/saved/index",
+    "pages/equipment/index",
+    "pages/detail/index",
+    "pages/week/index",
+    "pages/diet/index",
+    "pages/account/index"
+  ],
   "window": {
     "navigationBarBackgroundColor": "#fbfaf7",
     "navigationBarTextStyle": "black",
@@ -12,8 +21,22 @@
     "backgroundColor": "#fbfaf7",
     "borderStyle": "white",
     "list": [
-      {"pagePath":"pages/pick/index","text":"挑动作","iconPath":"assets/pick.png","selectedIconPath":"assets/pick-on.png"},
-      {"pagePath":"pages/saved/index","text":"我的收藏","iconPath":"assets/saved.png","selectedIconPath":"assets/saved-on.png"}
+      {
+        "pagePath": "pages/today/index",
+        "text": "今天"
+      },
+      {
+        "pagePath": "pages/pick/index",
+        "text": "挑动作",
+        "iconPath": "assets/pick.png",
+        "selectedIconPath": "assets/pick-on.png"
+      },
+      {
+        "pagePath": "pages/saved/index",
+        "text": "我的收藏",
+        "iconPath": "assets/saved.png",
+        "selectedIconPath": "assets/saved-on.png"
+      }
     ]
   },
   "sitemapLocation": "sitemap.json"
