@@ -1,0 +1,26 @@
+<view class="screen">
+  <view class="header"><text class="title">挑动作</text><image class="brand" src="/assets/brand.svg" mode="aspectFit" aria-label="练哪"/></view>
+  <view class="section">
+    <view class="between"><text class="heading">训练部位</text><button wx:if="{{canReset}}" class="link" bindtap="reset">清空筛选</button></view>
+    <view class="part-grid">
+      <button wx:for="{{parts}}" wx:key="name" class="part {{item.selected ? 'on' : ''}}" disabled="{{item.disabled}}" data-name="{{item.name}}" bindtap="selectPart">{{item.name}}</button>
+    </view>
+  </view>
+  <view class="section">
+    <view class="between"><text class="heading">我的器械</text><button class="link" bindtap="equipment">选择器械 ＋</button></view>
+    <view class="muted">{{activeLabel}}</view>
+  </view>
+  <view class="results">
+    <view class="between"><text class="heading">匹配动作</text><text class="count">{{total}} 个动作</text></view>
+    <scroll-view class="tabs" scroll-x enhanced show-scrollbar="{{false}}"><view class="tabs-inner">
+      <button wx:for="{{categories}}" wx:key="*this" class="tab {{item === category ? 'on' : ''}}" data-name="{{item}}" bindtap="selectCategory">{{item}}</button>
+    </view></scroll-view>
+    <view wx:for="{{sections}}" wx:for-item="group" wx:key="name" class="group">
+      <view class="between group-head"><text class="subheading">{{group.name}}</text><text class="count">{{group.count}}</text></view>
+      <view class="warm-label muted" wx:if="{{group.name === '热身'}}">按部位推荐，不限器械</view>
+      <view class="panel"><move-row wx:for="{{group.rows}}" wx:for-item="move" wx:key="id" move="{{move}}" bind:changed="refresh"/></view>
+      <button wx:if="{{group.more}}" class="link more" data-name="{{group.name}}" bindtap="more">再看 {{group.more}} 个动作</button>
+    </view>
+    <view wx:if="{{noTraining}}" class="empty">当前组合暂无正式动作。<view><button class="link" bindtap="equipment">调整器械</button></view></view>
+  </view>
+</view>

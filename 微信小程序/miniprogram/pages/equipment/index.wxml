@@ -1,0 +1,27 @@
+<view class="screen with-dock">
+  <view class="modes">
+    <button data-mode="active" bindtap="mode" class="mode {{mode === 'active' ? 'on' : ''}}">本次使用</button>
+    <button data-mode="owned" bindtap="mode" class="mode {{mode === 'owned' ? 'on' : ''}}">已拥有</button>
+  </view>
+  <view class="tools"><input class="search" placeholder="搜索器械或别名" value="{{query}}" bindinput="search" confirm-type="search"/>
+    <picker range="{{choices}}" value="{{groupIndex}}" bindchange="group"><view class="dropdown">{{choices[groupIndex]}} ▾</view></picker>
+  </view>
+  <view class="between summary">
+    <text>{{mode === 'owned' ? '已拥有 ' + selectedCount + ' 项' : (selectedCount ? '本次已选 ' + selectedCount + ' 项' : '本次不限器械')}}</text>
+    <button wx:if="{{canClear}}" class="link" bindtap="clear">不限器械</button>
+  </view>
+  <view class="muted">{{mode === 'owned' ? '保存后，下次仍可使用这份器械清单。' : '可多选。需要搭配的器械请一并勾选。'}}</view>
+  <view wx:for="{{groups}}" wx:key="name" wx:for-item="group" class="group">
+    <view class="subheading">{{group.name}}</view>
+    <view class="tiles">
+      <button wx:for="{{group.items}}" wx:for-item="gear" wx:key="name" class="tile {{gear.checked ? 'on' : ''}}"
+        disabled="{{gear.disabled}}" data-name="{{gear.name}}" bindtap="toggle">
+        <image src="{{gear.img}}" mode="aspectFit" lazy-load/>
+        <text class="check">{{gear.checked ? '✓' : ''}}</text>
+        <text class="tile-name">{{gear.name}}</text><text wx:if="{{gear.note}}" class="note">{{gear.note}}</text>
+      </button>
+    </view>
+  </view>
+  <view wx:if="{{!groups.length}}" class="empty">没有找到这种器械，试试其他名称。</view>
+  <view class="dock"><button class="primary" bindtap="save">保存选择</button></view>
+</view>

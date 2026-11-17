@@ -1,0 +1,18 @@
+<view wx:if="{{move}}" class="screen with-dock">
+  <view class="move-title">{{move.name}}</view>
+  <view class="stage">
+    <image wx:if="{{status !== 'ready'}}" class="visual" src="{{cover}}" mode="aspectFit" webp/>
+    <image wx:if="{{animation}}" class="visual" src="{{animation}}" mode="aspectFit" webp bindload="loaded" binderror="failed" aria-label="{{move.name}}循环演示"/>
+  </view>
+  <view wx:if="{{status === 'loading'}}" class="media-note muted">动图加载中…</view>
+  <view wx:if="{{status === 'error'}}" class="media-note between"><text class="muted">动图加载失败</text><button class="link" bindtap="loadAnimation">重新加载</button></view>
+  <view class="meta-row"><text>训练部位</text><text>{{move.part}}</text></view>
+  <view class="meta-row"><text>目标肌群</text><text>{{move.muscle}}</text></view>
+  <view class="meta-row"><text>器械</text><text>{{gear}}</text></view>
+  <view class="group">
+    <view class="heading">动作说明</view>
+    <view wx:for="{{move.steps}}" wx:key="order" class="step"><text class="step-number">{{item.order}}</text><text>{{item.text}}</text></view>
+  </view>
+  <view class="dock"><view wx:if="{{hint}}" class="saved-hint">{{hint}}</view><button class="primary" bindtap="favorite">{{favorite ? '已收藏 · 取消收藏' : '加入收藏'}}</button></view>
+</view>
+<view wx:else class="empty">未找到这个动作。<view><button class="link" bindtap="pick">去挑动作</button></view></view>

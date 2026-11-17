@@ -1,0 +1,14 @@
+<view class="screen">
+  <view class="header"><text class="title">我的收藏</text><image class="brand" src="/assets/brand.svg" mode="aspectFit" aria-label="练哪"/></view>
+  <block wx:if="{{total}}">
+    <scroll-view class="tabs" scroll-x enhanced show-scrollbar="{{false}}"><view class="tabs-inner">
+      <button wx:for="{{tabs}}" wx:key="*this" class="tab {{selected === item ? 'on' : ''}}" data-name="{{item}}" bindtap="select">{{item}}</button>
+    </view></scroll-view>
+    <view wx:for="{{groups}}" wx:for-item="group" wx:key="name" class="group">
+      <view class="between group-head"><text class="subheading">{{group.name}}</text><text class="count">{{group.count}}</text></view>
+      <view class="panel"><move-row wx:for="{{group.rows}}" wx:for-item="move" wx:key="id" move="{{move}}" bind:changed="refresh"/></view>
+      <button wx:if="{{group.more}}" data-name="{{group.name}}" bindtap="more" class="link more">再看 {{group.more}} 个动作</button>
+    </view>
+  </block>
+  <view wx:else class="empty">还没有收藏的动作。<view><button class="link" bindtap="pick">去挑动作</button></view></view>
+</view>

@@ -1,0 +1,13 @@
+{
+  "appid": "wx30a87cd4d4c6e9c1",
+  "projectname": "lianna",
+  "description": "练哪 · 健身动作筛选与收藏",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": true
+  }
+}

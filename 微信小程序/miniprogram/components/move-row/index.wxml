@@ -1,0 +1,16 @@
+<view class="row">
+  <view class="item" bindtap="open" aria-role="button" aria-label="{{move.name}}，查看动作">
+    <view class="preview">
+      <image wx:if="{{!broken}}" src="{{move.cover}}" lazy-load webp mode="aspectFit" binderror="coverFailed"/>
+      <text wx:else>暂无封面</text>
+    </view>
+    <view class="copy">
+      <view class="name">{{move.name}}</view>
+      <view class="meta">{{move.gear}}</view>
+      <view class="meta hint" wx:if="{{move.favoriteHint}}">{{move.favoriteHint}}</view>
+    </view>
+  </view>
+  <button class="save" bindtap="save" aria-label="{{move.favorite ? '取消收藏' : '收藏'}}{{move.name}}">
+    <image src="{{move.favorite ? '/assets/saved-on.png' : '/assets/saved.png'}}" mode="aspectFit"/>
+  </button>
+</view>

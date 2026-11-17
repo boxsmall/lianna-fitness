@@ -1,0 +1,6 @@
+.part-grid{display:flex;flex-wrap:wrap;justify-content:space-between;margin-top:12rpx}
+.part{display:flex;align-items:center;justify-content:center;width:24%;min-height:84rpx;margin-top:10rpx;border:2rpx solid #d9dde4;border-radius:12rpx;background:white;font-weight:600}
+.part.on{color:#2448d8;background:#edf1ff;border-color:#2448d8}
+.part[disabled]{background:#f1f2f1;color:#9098a6}
+.results{padding-top:26rpx}
+.warm-label{margin:0 0 14rpx}

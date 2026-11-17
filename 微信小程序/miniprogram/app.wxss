@@ -1,0 +1,27 @@
+page{background:#fbfaf7;color:#171c25;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;font-size:30rpx}
+view,button,input,image,scroll-view{box-sizing:border-box}
+button{background:transparent;color:inherit;margin:0;padding:0;border:none;line-height:1.4;font-size:28rpx;border-radius:0}
+button::after{border:none}
+button[disabled]{color:#8a919e}
+.screen{padding:28rpx 28rpx 52rpx}
+.header,.between,.meta-row{display:flex;align-items:center;justify-content:space-between}
+.header{padding-bottom:22rpx;border-bottom:1rpx solid #d9dde4}
+.title{font-size:55rpx;font-weight:750;line-height:1.15;letter-spacing:-2rpx}
+.brand{width:140rpx;height:54rpx}
+.section{padding:24rpx 0;border-bottom:1rpx solid #d9dde4}
+.heading{font-size:36rpx;line-height:1.4;font-weight:650}
+.subheading{font-size:30rpx;font-weight:650}
+.link{min-height:72rpx;padding:12rpx 4rpx;color:#2448d8;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+.count,.muted{font-size:25rpx;color:#596476;line-height:1.5}
+.tabs{width:100%;white-space:nowrap;border-bottom:1rpx solid #d9dde4;margin:12rpx 0}
+.tabs-inner{display:inline-flex}
+.tab{display:inline-flex;align-items:center;min-height:84rpx;padding:10rpx 18rpx;border-bottom:4rpx solid transparent;font-weight:600}
+.tab.on{color:#2448d8;border-color:#2448d8}
+.group{margin-top:26rpx}
+.group-head{margin-bottom:12rpx}
+.panel{border:1rpx solid #e1e3e9;border-radius:14rpx;overflow:hidden;background:white}
+.more{display:block;margin:6rpx auto}
+.empty{padding:50rpx 22rpx;text-align:center;color:#596476;line-height:1.7}
+.primary{width:100%;min-height:88rpx;border-radius:12rpx;background:#2448d8;color:#fff;display:flex;justify-content:center;align-items:center;font-size:30rpx;font-weight:650}
+.dock{position:fixed;z-index:2;left:0;right:0;bottom:0;background:#fbfaf7;border-top:1rpx solid #d9dde4;padding:14rpx 28rpx;padding-bottom:calc(14rpx + env(safe-area-inset-bottom))}
+.with-dock{padding-bottom:calc(146rpx + env(safe-area-inset-bottom))}
