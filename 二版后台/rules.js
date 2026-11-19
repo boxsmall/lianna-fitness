@@ -49,7 +49,9 @@ function item(id, meta = {}, sets = 2) {
   return {
     key: randomUUID(),
     id: m.sourceId,
-    name: m.name,
+    name: meta.name || m.name,
+    steps: meta.steps || m.steps,
+    media: meta.media || {cover: "/media/cover/"+m.sourceId,animation:"/media/new/"+m.sourceId},
     pattern: meta.pattern || '',
     unit: meta.unit || '次',
     sets,

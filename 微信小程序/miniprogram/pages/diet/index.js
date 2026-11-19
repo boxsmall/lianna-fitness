@@ -5,9 +5,88 @@ const split = (v) =>
     .split(/[、,，]/)
     .map((x) => x.trim())
     .filter(Boolean);
+const nav = require('../../lib/navigation');
+const display = require('../../lib/presentation');
+const commonAllergens = ['花生', '牛奶', '鸡蛋', '大豆', '虾蟹'];
+const allergenOptions = (value) =>
+  commonAllergens.map((name) => ({
+    name,
+    checked: split(value).includes(name)
+  }));
+const foodTypes = [
+  ['carb', '主食'],
+  ['protein', '肉类或蛋白质来源'],
+  ['fat', '脂肪来源']
+];
 Page({
+  toggleAllergen(e) {
+    const n = e.currentTarget.dataset.name;
+    const old = split(this.data.form.allergens);
+    const v = (
+      old.includes(n) ? old.filter((x) => x !== n) : old.concat(n)
+    ).join('、');
+    this.setData({ 'form.allergens': v, allergenOptions: allergenOptions(v) });
+  },
+  screen(e) {
+    this.setData({ mode: e.currentTarget.dataset.mode, error: '' });
+    wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+  },
+  sex(e) {
+    this.setData({ 'form.sex': e.currentTarget.dataset.value });
+  },
+  estimate(e) {
+    this.setData({ 'form.estimate': e.currentTarget.dataset.value === 1 });
+  },
+  next() {
+    const f = this.data.form;
+    if (!f.sex || !(Number(f.height) > 0) || !(Number(f.weight) > 0)) {
+      this.setData({ error: '请填写性别、有效身高和体重。' });
+      return;
+    }
+    this.setData({ mode: 'energy', error: '' });
+    wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+  },
+  editRatios() {
+    this.setData({ ratioDraft: this.data.form.ratios, ratioOpen: true });
+  },
+  ratioInput(e) {
+    this.setData({ ratioDraft: e.detail.value });
+  },
+  closeRatios() {
+    this.setData({ ratioOpen: false });
+  },
+  saveRatios() {
+    api.run(this, async () => {
+      const a = await api.mutate('profile', {
+        ...this.profile,
+        estimate: false,
+        ratios: split(this.data.ratioDraft).map(Number)
+      });
+      this.adopt(a.profile);
+      this.setData({ ratioOpen: false });
+      await this.loadMeal();
+    });
+  },
+  adopt(p) {
+    this.profile = p;
+    this.setData({
+      editing: false,
+      allergenOptions: allergenOptions(p.allergens),
+      meals: display.meals(p),
+      form: {
+        ...this.data.form,
+        ...p,
+        ...p.targets,
+        ratios: p.ratios.join(','),
+        allergens: p.allergens.join('、'),
+        avoid: p.avoid.join('、')
+      }
+    });
+  },
   data: {
+    mode: 'nutrition',
     mealNames,
+    allergenOptions: allergenOptions(''),
     index: 0,
     date: '',
     editing: true,
@@ -40,34 +119,43 @@ Page({
     recommendations: []
   },
   onLoad(q) {
-    this.setData({ index: Number(q.meal) || 0, date: api.localDate() });
+    this.initial = q;
+  },
+  onShow() {
+    const q = nav.take('diet') || this.initial || {};
+    this.initial = null;
+    this.setData({
+      date: api.localDate(),
+      index: Number(q.meal) || 0,
+      mode: q.mode || 'nutrition',
+      error: '',
+      ratioOpen: false,
+      showFoods: false
+    });
     this.open();
   },
   async open() {
     try {
-      const a = api.credentials() ? await api.refresh() : null,
-        p = a?.profile;
-      if (p) {
-        this.setData({
-          form: {
-            ...this.data.form,
-            ...p,
-            ...p.targets,
-            ratios: p.ratios.join(','),
-            allergens: p.allergens.join('、'),
-            avoid: p.avoid.join('、')
-          },
-          editing: false
-        });
-        this.profile = p;
-        await this.loadMeal();
+      const a = api.credentials() ? await api.refresh() : null;
+      if (a?.profile) {
+        this.adopt(a.profile);
+        if (this.data.mode === 'meal') await this.loadMeal();
+      } else {
+        this.profile = null;
+        this.setData({ editing: true, mode: 'profile', result: null });
       }
     } catch (e) {
       this.setData({ error: e.message });
     }
   },
   input(e) {
-    this.setData({ ['form.' + e.currentTarget.dataset.k]: e.detail.value });
+    const key = e.currentTarget.dataset.k;
+    this.setData({
+      ['form.' + key]: e.detail.value,
+      ...(key === 'allergens'
+        ? { allergenOptions: allergenOptions(e.detail.value) }
+        : {})
+    });
   },
   pick(e) {
     const { k, list } = e.currentTarget.dataset;
@@ -116,16 +204,19 @@ Page({
         return;
       if (!(await api.login())) return;
       const a = await api.mutate('profile', args);
-      this.profile = a.profile;
-      this.setData({ editing: false });
+      this.adopt(a.profile);
+      this.setData({ mode: 'nutrition' });
       await this.loadMeal();
     });
   },
   async loadMeal() {
+    this.generationId = undefined;
     const { index, date } = this.data;
     const r = await api.request('foods', this.profile),
       old = api.state()?.meals[date + '-' + index];
-    const items = old ? old.rows.map((x) => ({ id: x.id, locked: x.locked })) : [];
+    const items = old
+      ? old.rows.map((x) => ({ id: x.id, locked: x.locked }))
+      : [];
     const stale = items.some((x) => !r.foods.some((f) => f.id === x.id));
     this.setData({
       foods: r.foods,
@@ -138,13 +229,16 @@ Page({
       result: null,
       history: old || null,
       recommendations: [],
-      error: stale ? '已保存搭配含当前不可推荐的食材，请重新选择。原记录已保留。' : ''
+      error: stale
+        ? '已保存搭配含当前不可推荐的食材，请重新选择。原记录已保留。'
+        : ''
     });
     await this.calculate();
   },
   changeMeal(e) {
     api.run(this, async () => {
-      this.setData({ index: Number(e.currentTarget.dataset.i) });
+      this.setData({ index: Number(e.currentTarget.dataset.i), mode: 'meal' });
+      wx.pageScrollTo({ scrollTop: 0, duration: 0 });
       await this.loadMeal();
     });
   },
@@ -152,7 +246,15 @@ Page({
     this.setData({ choice: Number(e.detail.value) });
   },
   openFoods(e) {
-    this.setData({ showFoods: true, replaceId: e.currentTarget.dataset.id || '' });
+    const { id, type } = e.currentTarget.dataset;
+    this.setData({
+      showFoods: true,
+      replaceId: id || '',
+      choicesForMeal:
+        type && type !== 'other'
+          ? this.data.foods.filter((f) => f.primary === type)
+          : this.data.foods
+    });
   },
   closeFoods() {
     this.setData({ showFoods: false, replaceId: '' });
@@ -161,7 +263,8 @@ Page({
     api.run(this, async () => {
       const id = e.currentTarget.dataset.id,
         old = this.data.replaceId;
-      if (this.data.items.some((r) => r.id === id && id !== old)) throw Error('本餐已选该食材');
+      if (this.data.items.some((r) => r.id === id && id !== old))
+        throw Error('本餐已选该食材');
       const items = old
         ? this.data.items.map((r) => (r.id === old ? { id, locked: null } : r))
         : this.data.items.concat({ id, locked: null });
@@ -178,6 +281,20 @@ Page({
       });
     this.setData({
       result: r,
+      sections: [
+        ...foodTypes,
+        ...(r.rows.some((x) => !foodTypes.some(([k]) => x.primary === k))
+          ? [['other', '其他食材']]
+          : [])
+      ].map(([type, label]) => ({
+        type,
+        label,
+        rows: r.rows.filter((x) =>
+          type === 'other'
+            ? !foodTypes.some(([k]) => x.primary === k)
+            : x.primary === type
+        )
+      })),
       metrics: [
         ['能量', 'kcal', '千卡'],
         ['碳水', 'carb', 'g'],
@@ -189,13 +306,19 @@ Page({
         target: r.target[k],
         actual: r.actual[k],
         delta: r.delta[k],
-        deltaText: r.delta[k] >= 0 ? '还差 ' + r.delta[k] : '超出 ' + -r.delta[k]
+        deltaText:
+          r.delta[k] === 0
+            ? '已达目标'
+            : r.delta[k] > 0
+              ? '还差 ' + r.delta[k]
+              : '超出 ' + -r.delta[k]
       }))
     });
   },
   add(e) {
     api.run(this, async () => {
-      const id = e.currentTarget.dataset.id || this.data.foods[this.data.choice]?.id;
+      const id =
+        e.currentTarget.dataset.id || this.data.foods[this.data.choice]?.id;
       if (!id || this.data.items.some((x) => x.id === id)) return;
       this.setData({ items: [...this.data.items, { id, locked: null }] });
       await this.calculate();
@@ -214,8 +337,11 @@ Page({
       if (op === 'remove') items = items.filter((i) => i.id !== id);
       else if (op === 'unlock') r.locked = null;
       else {
-        const v = this.weights?.[id] ?? this.data.result.rows.find((x) => x.id === id).grams;
-        if (v === '' || !Number.isFinite(Number(v)) || Number(v) < 0) throw Error('请输入有效克数');
+        const v =
+          this.weights?.[id] ??
+          this.data.result.rows.find((x) => x.id === id).grams;
+        if (v === '' || !Number.isFinite(Number(v)) || Number(v) < 0)
+          throw Error('请输入有效克数');
         r.locked = Number(v);
       }
       this.setData({ items });
@@ -228,7 +354,8 @@ Page({
         index: this.data.index,
         date: this.data.date,
         items: this.data.items,
-        version: this.data.result.version
+        version: this.data.result.version,
+        generationId: this.generationId || undefined
       });
       await this.loadMeal();
       wx.showToast({ title: '搭配已保存' });
@@ -236,7 +363,8 @@ Page({
   },
   suggest() {
     api.run(this, async () => {
-      const r = await api.request('recommend', { index: this.data.index });
+      const r = await api.request('recommend', { index: this.data.index, requestId: 'meal-'+Date.now()+'-'+Math.random().toString(36).slice(2), parentId: this.generationId || undefined });
+      this.generationId = r.generationId;
       this.setData({
         recommendations: (r.items || []).map((x) => ({
           ...x,

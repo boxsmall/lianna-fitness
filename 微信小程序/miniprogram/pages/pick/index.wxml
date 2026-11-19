@@ -1,26 +1,10 @@
-<view class="screen">
-  <view class="header"><text class="title">挑动作</text><image class="brand" src="/assets/brand.svg" mode="aspectFit" aria-label="练哪"/></view>
-  <view class="section">
-    <view class="between"><text class="heading">训练部位</text><button wx:if="{{canReset}}" class="link" bindtap="reset">清空筛选</button></view>
-    <view class="part-grid">
-      <button wx:for="{{parts}}" wx:key="name" class="part {{item.selected ? 'on' : ''}}" disabled="{{item.disabled}}" data-name="{{item.name}}" bindtap="selectPart">{{item.name}}</button>
-    </view>
-  </view>
-  <view class="section">
-    <view class="between"><text class="heading">我的器械</text><button class="link" bindtap="equipment">选择器械 ＋</button></view>
-    <view class="muted">{{activeLabel}}</view>
-  </view>
-  <view class="results">
-    <view class="between"><text class="heading">匹配动作</text><text class="count">{{total}} 个动作</text></view>
-    <scroll-view class="tabs" scroll-x enhanced show-scrollbar="{{false}}"><view class="tabs-inner">
-      <button wx:for="{{categories}}" wx:key="*this" class="tab {{item === category ? 'on' : ''}}" data-name="{{item}}" bindtap="selectCategory">{{item}}</button>
-    </view></scroll-view>
-    <view wx:for="{{sections}}" wx:for-item="group" wx:key="name" class="group">
+<view class="screen {{selecting ? 'selecting' : ''}}"><view class="header"><text class="title">{{selecting?'添加训练动作':'挑动作'}}</text><image class="brand" src="/assets/brand.svg" mode="aspectFit"/></view><view class="subtitle">{{selecting?date+' · 可连续选择多个动作，已有动作会保留':'从动作库挑选，也可以加入训练计划。'}}</view><view class="pills"><button class="chip {{!hasParts && category==='全部'?'on':''}}" bindtap="all">全部</button><button wx:for="{{parts}}" wx:key="name" class="chip {{item.selected?'on':''}}" disabled="{{item.disabled}}" data-name="{{item.name}}" bindtap="selectPart">{{item.name}}</button><button class="chip {{category==='热身'?'on':''}}" data-name="热身" bindtap="selectCategory">热身</button></view><view class="between"><text class="muted">现有器械：{{activeLabel}}</text><button class="link" bindtap="equipment">修改</button></view><view class="muted">热身不受器械筛选影响 · 共 {{total}} 个动作</view><input class="field" value="{{query}}" placeholder="搜索动作名称" bindinput="search"/><picker range="{{categories}}" bindchange="muscle"><view class="muted">肌群筛选 · {{category}}　⌄</view></picker><view>  <view wx:for="{{sections}}" wx:for-item="group" wx:key="name" class="group">
       <view class="between group-head"><text class="subheading">{{group.name}}</text><text class="count">{{group.count}}</text></view>
       <view class="warm-label muted" wx:if="{{group.name === '热身'}}">按部位推荐，不限器械</view>
-      <view class="panel"><move-row wx:for="{{group.rows}}" wx:for-item="move" wx:key="id" move="{{move}}" bind:changed="refresh"/></view>
+      <view class="list"><move-row class="exercise-choice" wx:for="{{group.rows}}" wx:for-item="move" wx:key="id" move="{{move}}" selecting="{{selecting}}" bind:select="toggleMove" bind:changed="refresh"/></view>
       <button wx:if="{{group.more}}" class="link more" data-name="{{group.name}}" bindtap="more">再看 {{group.more}} 个动作</button>
     </view>
     <view wx:if="{{noTraining}}" class="empty">当前组合暂无正式动作。<view><button class="link" bindtap="equipment">调整器械</button></view></view>
   </view>
 </view>
+<view wx:if="{{selecting}}" class="selection-dock"><view class="error" wx:if="{{error}}">{{error}}</view><text>已选 {{selectedCount}} 个动作</text><button class="primary" disabled="{{!selectedCount || busy}}" loading="{{busy}}" bindtap="confirmSelection">加入当天训练{{selectedCount ? '（'+selectedCount+'）' : ''}}</button></view><main-nav wx:else active="week"/>

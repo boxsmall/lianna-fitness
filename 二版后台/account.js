@@ -105,34 +105,42 @@ function change(a, action, b, c) {
     need(s.status === '训练中', '请先开始训练');
     s.status = '已完成';
     a.history.push(structuredClone(s));
-  } else if (action === 'add') {
+  } else if (action === 'add' || action === 'addMany') {
     R.day(b.date);
-    need(a.weeks[R.monday(b.date)] || s, '请先创建该周计划');
     if (s) workout();
-    const m = R.moves.get(b.id);
-    need(m, '动作不存在');
-    const gear = a.weeks[R.monday(b.date)]?.gear || a.prefs.owned;
-    need(
-      !R.missing(m, gear).length || b.confirmGear,
-      '缺少' + R.missing(m, gear).join('、') + '，请确认仍要加入'
-    );
+    const ids = action === 'add' ? [b.id] : b.ids;
+    need(Array.isArray(ids) && ids.length > 0 && ids.length <= 50, '请选择 1～50 个动作');
+    const week = R.monday(b.date), gear = a.weeks[week]?.gear || a.prefs.owned;
+    const additions = [];
+    const seen = new Set((s?.items || []).map(i => i.id));
+    for (const id of ids) {
+      const m = R.moves.get(id);
+      need(m, '动作不存在');
+      const meta = c.actions.find(x => x.id === m.sourceId);
+      need(meta?.visible !== false, '此动作已下架，请选择其他动作');
+      if (seen.has(m.sourceId)) continue;
+      const missing = R.missing({ ...m, gear: meta?.gear || m.gear, alternatives: meta?.alternatives || m.alternatives }, gear);
+      need(!missing.length || b.confirmGear, '缺少' + missing.join('、') + '，请确认仍要加入');
+      additions.push(R.item(m.sourceId, meta));
+      seen.add(m.sourceId);
+    }
     const target = s || {
       key: require('node:crypto').randomUUID(),
       date: b.date,
       type: '自行编排',
-      budget: a.weeks[R.monday(b.date)].minutes,
+      budget: a.weeks[week]?.minutes || 30,
       items: [],
       status: '待训练'
     };
-    target.items.push(
-      R.item(
-        m.sourceId,
-        c.actions.find((x) => x.id === m.sourceId)
-      )
-    );
+    target.items.push(...additions);
     target.manual = true;
     target.timing = R.timing(target.items);
     a.sessions[b.date] = target;
+    if (!a.weeks[week]) a.weeks[week] = {
+      goal: '日常健身', days: 1, minutes: target.budget, gear: [...gear],
+      source: 'manual', version: { actions: c.version.actions, templates: c.version.templates }
+    };
+    if (a.weeks[week].source === 'manual') a.weeks[week].days = Object.keys(a.sessions).filter(d => R.monday(d) === week).length;
   } else if (['edit', 'replace', 'remove', 'reorder'].includes(action)) {
     workout();
     const original = s.items.find((x) => x.key === b.key);

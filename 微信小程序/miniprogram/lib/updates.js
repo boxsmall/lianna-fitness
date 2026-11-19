@@ -1,5 +1,5 @@
 const api = require('./service'),
-  { byId } = require('./catalog');
+  { byId, exercises, training, warmups } = require('./catalog');
 const key = 'lianna.content.v2';
 const originals = new Map();
 let applied = 0,
@@ -10,7 +10,8 @@ function apply(pack) {
     Object.assign(m, base);
   }
   for (const a of pack.actions) {
-    const m = byId.get(a.id);
+    let m = byId.get(a.id);
+    if(!m && a.sourceId && a.steps && a.gear){m={...a,id:a.id,sourceId:a.id,hidden:a.visible===false};byId.set(a.id,m);exercises.push(m);(m.warmup?warmups:training).push(m)}
     if (!m) continue;
     if (!originals.has(a.id))
       originals.set(a.id, {
@@ -39,8 +40,7 @@ function apply(pack) {
   if (['pages/pick/index', 'pages/saved/index'].includes(page.route)) page.refresh();
   if (page.route === 'pages/detail/index' && page.move) {
     const m = byId.get(page.move.sourceId);
-    if (m?.hidden) page.setData({ move: null });
-    else page.onLoad({ id: page.move.sourceId });
+    page.onLoad({ id: page.move.sourceId });
   }
 }
 function present(pack) {

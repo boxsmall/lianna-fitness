@@ -59,7 +59,7 @@ const defaults = {
     }
   },
   ai: {
-    model: '',
+    model: 'deepseek-flash',
     prompt: '仅从给定候选编号中推荐本餐食材，输出 JSON 数组，每项包含 id、reason。',
     dailyLimit: 0,
     pricePerMillionInput: 0,
@@ -199,7 +199,10 @@ function validate(module, value) {
           Object.values(e.activity).every((n) => Number.isFinite(n) && n > 0),
         '估算规则缺少审核依据或参数'
       );
-  } else
+  } else {
+    for(const [key,min,max] of [['maxRetries',0,2],['timeoutMs',1000,60000],['maxInputTokens',512,64000],['maxOutputTokens',128,8192],['userDailyLimit',0,100000]]) if(value[key]!=null) need(Number.isInteger(value[key])&&value[key]>=min&&value[key]<=max,'AI 参数无效：'+key);
+    for(const key of ['dailyBudget','pricePerMillionCache']) if(value[key]!=null) need(Number.isFinite(value[key])&&value[key]>=0&&value[key]<=100000,'金额配置无效');
+    if(value.fallbackModel){need(['deepseek-flash','deepseek-v4-pro'].includes(value.fallbackModel)&&value.fallbackModel!==value.model,'备用模型须为另一款 DeepSeek 模型');for(const k of ['fallbackInput','fallbackOutput'])need(Number.isFinite(value[k])&&value[k]>=0,'请填写备用模型独立价格');if(value.fallbackCache!=null)need(Number.isFinite(value.fallbackCache)&&value.fallbackCache>=0,'缓存价格无效')}
     need(
       typeof value.prompt === 'string' &&
         typeof value.model === 'string' &&
@@ -210,5 +213,6 @@ function validate(module, value) {
         ),
       'AI 配置无效'
     );
+  }
 }
 module.exports = { defaults, validate };

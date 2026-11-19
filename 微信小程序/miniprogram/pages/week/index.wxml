@@ -1,78 +1,22 @@
-<view class="screen">
-  <view class="title">周训练计划</view>
-  <view class="between">
-    <button class="link" data-n="-7" bindtap="week">‹ 上一周</button>
-    <text>{{start}}</text>
-    <button class="link" data-n="7" bindtap="week">下一周 ›</button>
-  </view>
-  <view class="vcard">
-    <view class="heading">安排一周</view>
-    <view class="picks">
-      <picker range="{{goals}}" data-k="goal" data-list="goals" bindchange="choose">
-        <view class="field">{{goal}} ▾</view>
-      </picker>
-      <picker range="{{daysList}}" data-k="days" data-list="daysList" bindchange="choose">
-        <view class="field">每周 {{days}} 天 ▾</view>
-      </picker>
-      <picker range="{{minutesList}}" data-k="minutes" data-list="minutesList" bindchange="choose">
-        <view class="field">每次 {{minutes}} 分钟 ▾</view>
-      </picker>
-    </view>
-    <picker range="{{experiences}}" bindchange="choose" data-k="experience" data-list="experiences">
-      <view class="field">训练经验 · {{experience}} ▾</view>
-    </picker>
-    <view class="muted">指定训练日（可选）</view>
-    <checkbox-group class="picks" bindchange="weekdays">
-      <label wx:for="{{dayOptions}}" wx:key="*this">
-        <checkbox value="{{index}}"/>{{item}}</label>
-      </checkbox-group>
-      <view class="vrow">本计划使用的器械：{{gearLabel}}</view>
-      <button class="link" bindtap="gear">选择器械</button>
-      <button class="link" bindtap="bodyweight">按徒手生成</button>
-      <view wx:if="{{!manualDays}}" class="vrow">从空白周自行编排 <switch checked="{{blank}}" data-k="blank" bindchange="field"/>
-    </view>
-    <view wx:if="{{manualDays}}" class="vrow">自行编排 · 从四天模板开始 <switch data-k="useFour" bindchange="field"/>
-  </view>
-  <button class="primary" bindtap="generate" loading="{{busy}}">预览七天安排</button>
-</view>
+<view class="screen"><view class="header"><text class="title">{{mode==='create'?'安排你的一周':(mode==='session'?(session.type==='自行编排'?'当天训练':(session.type||'当天训练')):'我的一周')}}</text><image class="brand" src="/assets/brand.svg" mode="aspectFit"/></view>
 <view class="error" wx:if="{{error}}">{{error}}</view>
-<view class="vcard">
-  <view class="heading">{{preview?'周计划预览':'周安排'}}</view>
-  <scroll-view scroll-x class="tabs">
-    <view class="tabs-inner">
-      <button wx:for="{{rows}}" wx:key="date" class="tab {{item.active?'on':''}}" data-date="{{item.date}}" bindtap="select">{{item.weekday}} · {{item.type}}</button>
-    </view>
-  </scroll-view>
-  <view>{{date}}　{{session?session.type:'休息'}}</view>
-  <block wx:if="{{session}}">
-    <view class="muted">{{session.status}} · 预计 {{totalMinutes}} 分钟 / 预算 {{session.budget}} 分钟</view>
-    <view wx:if="{{session.snapshot}}" class="segment"><view class="subheading">开始时的计划</view><view wx:for="{{session.snapshot}}" wx:key="key">{{item.name}} · {{item.sets}} 组 × {{item.target}} {{item.unit}}</view></view><view class="muted">热身 {{session.timing.warm}} 秒 · 动作 {{session.timing.work}} 秒 · 休息 {{session.timing.rest}} 秒 · 转换 {{session.timing.transition}} 秒</view>
-    <view wx:for="{{items}}" wx:key="key" class="segment">
-      <button class="link" data-id="{{item.id}}" bindtap="demo">{{item.name}} ›</button>
-      <view>{{item.sets}} 组 × {{item.target}} {{item.unit}} · 组间休息 {{item.rest}} 秒</view>
-      <view wx:if="{{item.actual}}">实绩：{{item.actual}}</view>
-      <view wx:if="{{item.previous}}" class="muted">上次：{{item.previous}}</view>
-      <button wx:if="{{!preview && session.status!=='已完成'}}" class="link" data-key="{{item.key}}" bindtap="editor">调整 / 记录</button>
-    </view>
-    <block wx:if="{{!preview}}">
-      <picker wx:if="{{session.status==='待训练'}}" mode="date" value="{{date}}" bindchange="move">
-        <view class="field">调整训练日期 ▾</view>
-      </picker>
-      <button wx:if="{{session.status==='待训练' && items.length}}" class="primary" data-action="start" bindtap="train">开始训练</button>
-      <button wx:if="{{session.status==='训练中'}}" class="primary" data-action="finish" bindtap="train">完成并保存实绩</button>
-    </block>
-  </block>
-  <view wx:if="{{preview}}">
-    <view wx:for="{{rows}}" wx:key="date" class="vrow">{{item.date}}　{{item.weekday}}　{{item.type}}</view>
-    <button class="primary" bindtap="save">确认保存周计划</button>
-    <button class="link" bindtap="cancel">取消预览</button>
-  </view>
-  <view wx:if="{{!preview && hasWeek}}">
-    <button wx:if="{{addId}}" class="primary" bindtap="add">将「{{addName}}」加入 {{date}}</button>
-    <button wx:else class="link" bindtap="browse">从动作库添加</button>
-  </view>
-</view>
-<view wx:if="{{edit}}" class="vcard">
+<block wx:if="{{mode==='create'}}"><view class="subtitle">根据目标、时间和现有器械来排。</view>
+<view class="section-head strong">这次想练什么</view><view class="pills"><button wx:for="{{goals}}" wx:key="*this" class="chip {{goal===item?'on':''}}" data-k="goal" data-v="{{item}}" bindtap="option">{{item}}</button></view>
+<view class="strong">每周练几天</view><view class="pills"><button wx:for="{{daysList}}" wx:key="*this" class="chip {{days===item?'on':''}}" data-k="days" data-v="{{item}}" bindtap="option">{{item}}</button></view>
+<view class="strong">每次多久 · 分钟</view><view class="pills"><button wx:for="{{minutesList}}" wx:key="*this" class="chip {{minutes===item?'on':''}}" data-k="minutes" data-v="{{item}}" bindtap="option">{{item}}</button></view>
+<view class="between"><text class="strong">使用我的器械</text><button class="link" bindtap="gear">修改</button></view><view class="vcard between" bindtap="gear"><image wx:if="{{gearImage}}" style="width:64px;height:54px" src="{{gearImage}}" mode="aspectFit"/><text>{{gearLabel}}</text><text class="muted">{{gear.length ? '搭配徒手动作' : '使用自身体重训练'}}</text></view>
+<view class="strong">训练经验 · 选填</view><picker range="{{experiences}}" data-k="experience" data-list="experiences" bindchange="choose"><view class="field">{{experience==='基础'?'刚开始，先从基础动作练起':experience}}　⌄</view></picker>
+<view class="callout">{{manualDays?'5～7 天支持自己编排，可从四天模板开始。':'先安排错开的训练日，生成后仍可调日期、动作和组次。'}}</view><button class="link" bindtap="toggleAdvanced">指定训练日与编排方式</button><view wx:if="{{advanced || manualDays}}"><checkbox-group class="pills" bindchange="weekdays"><label wx:for="{{dayOptions}}" wx:key="*this"><checkbox value="{{index}}"/>{{item}}</label></checkbox-group><view wx:if="{{manualDays}}">从四天模板开始 <switch checked="{{useFour}}" data-k="useFour" bindchange="field"/></view><view wx:else>从空白周自行编排 <switch checked="{{blank}}" data-k="blank" bindchange="field"/></view><button class="link" bindtap="bodyweight">按徒手生成</button></view>
+<button class="primary" bindtap="generate" loading="{{busy}}">生成一周计划</button><button class="link wide" data-mode="week" bindtap="mode">返回周安排</button></block>
+<block wx:elif="{{mode==='week'}}"><view class="subtitle">{{weekLabel}}</view><view class="between section-head"><text class="tag">{{meta?meta.goal+' · '+meta.days+' 天 · '+meta.minutes+' 分钟':'本周尚未安排'}}</text><button class="link" data-mode="create" bindtap="mode">{{meta?'重新排一周':'自动排一周'}}</button></view><button wx:if="{{!preview}}" class="primary" bindtap="browse">自己选动作，安排当天训练</button><view wx:if="{{addId}}" class="callout">选择要加入「{{addName}}」的日期</view>
+<block wx:for="{{rows}}" wx:key="date"><view wx:if="{{item.scheduled || (hasWeek && addId)}}" class="vcard"><view class="between"><text class="muted">{{item.weekday}} · {{item.label}}</text><button wx:if="{{!preview && item.status==='待训练'}}" class="link" data-date="{{item.date}}" bindtap="dateDialog">调日期</button></view><view class="between"><view><view class="strong">{{item.type}}</view><view wx:if="{{item.scheduled}}" class="muted">{{item.budget}} 分钟 · {{item.count}} 个主要动作</view></view><button class="link" data-date="{{item.date}}" bindtap="select">{{preview?'查看':'编辑'}}</button></view><view wx:if="{{item.summary}}" class="rule"></view><text class="compact">{{item.summary}}</text></view></block>
+<view wx:if="{{!scheduled.length}}" class="vcard"><view class="heading">选择动作，开始训练</view><view class="subtitle">可一次选择多个动作，无需先创建整周计划。</view><button class="primary" bindtap="emptyAction" data-mode="create">挑选训练动作</button></view><view wx:if="{{scheduled.length}}" class="fine">{{restDays}}　休息与日常活动</view>
+<block wx:if="{{preview}}"><button class="primary" bindtap="save">确认保存周计划</button><button class="link wide" bindtap="cancel">取消预览</button></block><view class="between"><button class="link" data-n="-7" bindtap="week">上一周</button><button class="link" bindtap="browse">挑动作</button><button class="link" data-n="7" bindtap="week">下一周</button></view></block>
+<block wx:else><picker mode="date" value="{{date}}" bindchange="trainingDate"><view class="field">训练日期　{{date}}　⌄</view></picker><view class="subtitle">{{date}} · {{session?'预计 '+totalMinutes+' 分钟 · '+gearLabel:'休息与日常活动'}}</view><block wx:if="{{session}}"><view wx:if="{{warm.length}}" class="vcard"><view class="between"><text class="strong">先活动一下</text><text class="tag">热身 {{session.timing.warm}} 秒</text></view><view wx:for="{{warm}}" wx:key="key" class="between"><button class="link" data-id="{{item.id}}" bindtap="demo">{{item.name}}</button><button wx:if="{{!preview && session.status!=='已完成'}}" class="link" data-key="{{item.key}}" bindtap="editor">调整 / 记录</button></view></view>
+<view class="between section-head"><text class="heading">主要训练</text><button wx:if="{{!preview && session.status!=='已完成'}}" class="link" bindtap="browse">添加动作</button></view><view wx:for="{{mainItems}}" wx:key="key" class="vcard"><view class="choice-row"><image class="thumb" src="{{item.cover}}" mode="aspectFit" webp/><view class="grow"><view class="strong">{{item.name}}</view><view class="muted">{{item.sets}} 组 × {{item.target}} {{item.unit}} · 休息 {{item.rest}} 秒</view></view><button class="link" data-id="{{item.id}}" bindtap="demo">查看</button></view><view wx:if="{{item.actual || item.previous}}" class="fine">实绩 {{item.actual||'—'}}　上次 {{item.previous||'—'}}</view><view wx:if="{{!preview && session.status!=='已完成'}}" class="inline-actions rule"><button class="link" data-key="{{item.key}}" bindtap="replaceItem">换动作</button><button class="link" data-key="{{item.key}}" bindtap="editor">改组次</button><button wx:if="{{session.status==='训练中'}}" class="link" data-key="{{item.key}}" bindtap="editor">记录完成</button></view></view>
+<view wx:if="{{session.snapshot}}" class="vcard"><view class="strong">开始时的计划</view><view wx:for="{{session.snapshot}}" wx:key="key" class="fine">{{item.name}} · {{item.sets}} 组 × {{item.target}} {{item.unit}}</view></view><view class="callout">预计时长包含组间休息和换器械。</view><button wx:if="{{!preview && session.status==='待训练' && items.length}}" class="primary" data-action="start" bindtap="train">开始训练</button><button wx:if="{{!preview && session.status==='训练中'}}" class="primary" data-action="finish" bindtap="train">完成本次训练</button></block><view wx:if="{{!session && !preview}}" class="vcard"><view class="heading">安排这一天的训练</view><view class="subtitle">从动作库连续选择多个动作，再一起加入。默认使用“我的器械”。</view><button class="primary" bindtap="browse">选择训练动作</button></view><button wx:if="{{addId}}" class="primary" bindtap="add">将「{{addName}}」加入 {{date}}</button><button class="link wide" data-mode="week" bindtap="mode">返回我的一周</button></block>
+<view wx:if="{{moveDate}}" class="scrim"><view class="sheet"><view class="between"><text class="muted">练哪</text><button class="link" bindtap="closeDate">关闭</button></view><view class="heading">移动训练日期</view><view class="fine">{{session.type}} · {{date}}</view><picker mode="date" value="{{destination}}" bindchange="destination"><view class="field">目标日期　{{destination}}</view></picker><view class="callout">同一周目标已有训练时，可交换两个日期。</view><button class="primary" bindtap="confirmDate">确认调整</button></view></view>
+<view wx:if="{{edit}}" class="scrim"><view class="sheet">
   <view class="heading">{{edit.name}}</view>
   <label>组数<input class="field" type="number" value="{{edit.sets}}" data-k="sets" bindinput="editField"/>
 </label>
@@ -97,4 +41,4 @@
 </block>
 <button class="link" bindtap="closeEdit">收起</button>
 </view>
-</view>
+</view></view>

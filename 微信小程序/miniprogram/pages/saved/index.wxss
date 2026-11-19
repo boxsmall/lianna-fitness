@@ -1,0 +1,1 @@
+.screen{padding-bottom:calc(82px + env(safe-area-inset-bottom))}

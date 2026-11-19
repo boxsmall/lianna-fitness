@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"动作详情"}
+{
+  "navigationBarTitleText": "练哪",
+  "usingComponents": {
+    "main-nav": "/components/main-nav/index"
+  }
+}

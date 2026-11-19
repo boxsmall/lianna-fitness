@@ -1,9 +1,61 @@
 const api = require('../../lib/service'),
   storage = require('../../lib/storage');
-const { byId } = require('../../lib/catalog');
+const { byId, media, equipmentCatalog } = require('../../lib/catalog');
+const nav = require('../../lib/navigation');
+const display = require('../../lib/presentation');
 const names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 Page({
+  follow: nav.follow,
+  mode(e) {
+    if (e.currentTarget.dataset.mode === 'create') {
+      this.useOwnedGear = true;
+      this.setData({ gear: [...storage.read().owned], preview: null });
+    }
+    this.setData({
+      mode: e.currentTarget.dataset.mode,
+      error: '',
+      edit: null,
+      moveDate: null
+    });
+    this.draw();
+    wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+  },
+  option(e) {
+    this.setData({
+      [e.currentTarget.dataset.k]: e.currentTarget.dataset.v,
+      preview: null
+    });
+    this.draw();
+  },
+  emptyAction() {
+    this.browse();
+  },
+  replaceItem(e) {
+    this.editor(e);
+    this.replacements();
+  },
+  toggleAdvanced() {
+    this.setData({ advanced: !this.data.advanced });
+  },
+  dateDialog(e) {
+    const date = e.currentTarget.dataset.date;
+    this.setData({ date });
+    this.draw();
+    this.setData({ moveDate: date, destination: date });
+  },
+  destination(e) {
+    this.setData({ destination: e.detail.value });
+  },
+  closeDate() {
+    this.setData({ moveDate: null });
+  },
+  confirmDate() {
+    this.move({ detail: { value: this.data.destination } });
+    this.closeDate();
+  },
   data: {
+    mode: 'week',
+    advanced: false,
     goals: ['增肌', '减脂', '日常健身'],
     daysList: [1, 2, 3, 4, 5, 6, 7],
     minutesList: [15, 20, 30, 45, 60, 90],
@@ -28,22 +80,42 @@ Page({
     busy: false
   },
   onLoad(opts) {
+    this.useOwnedGear = true;
     this.setData({
-      start: api.monday(opts.date||api.localDate()),
-      date: opts.date||api.localDate(),
+      start: api.monday(opts.date || api.localDate()),
+      date: opts.date || api.localDate(),
       addId: opts.add || '',
       gear: storage.read().owned
     });
   },
   async onShow() {
+    const intent = nav.take('week');
+    if (intent) {
+      const date = intent.date || (intent.add ? this.data.date : '') || api.localDate();
+      if (intent.mode === 'create') this.useOwnedGear = true;
+      this.setData({
+        mode: intent.add ? 'session' : (intent.mode || 'week'),
+        start: api.monday(date),
+        date,
+        addId: intent.add || '',
+        error: '',
+        edit: null,
+        preview: null,
+        moveDate: null
+      });
+    }
     this.draw();
     if (api.credentials())
       try {
-        await api.refresh();
+        await api.sync();
+        if (this.useOwnedGear) this.setData({ gear: [...storage.read().owned] });
         this.draw();
       } catch (e) {
         this.setData({ error: e.message });
       }
+    if (this.useOwnedGear) this.setData({ gear: [...storage.read().owned] });
+    this.draw();
+    if (intent?.add) await this.add();
   },
   draw() {
     const a = api.state();
@@ -53,7 +125,22 @@ Page({
     const rows = Array.from({ length: 7 }, (_, i) => {
       const d = api.shift(start, i),
         x = sessions[d];
-      return { date: d, weekday: names[i], type: x?.type || '休息', active: d === date };
+      return {
+        date: d,
+        label: display.shortDate(d),
+        weekday: names[i],
+        type: x?.type || '休息',
+        active: d === date,
+        scheduled: !!x,
+        status: x?.status || '',
+        budget: x?.budget || 0,
+        count: x?.items.filter((m) => m.pattern !== '热身').length || 0,
+        summary:
+          x?.items
+            .filter((m) => m.pattern !== '热身')
+            .map((m) => m.name)
+            .join(' · ') || ''
+      };
     });
     const items = (s?.items || []).map((m) => {
       const actual = s.actual?.[m.key] || [];
@@ -64,6 +151,7 @@ Page({
         .find((v) => v.id === m.id);
       return {
         ...m,
+        cover: byId.has(m.id) ? media(byId.get(m.id), 'covers') : '',
         done: actual.length,
         previous: previous
           ? previous.value +
@@ -74,9 +162,25 @@ Page({
       };
     });
     const time = s?.timing || {};
+    const gear =
+      this.data.mode === 'create'
+        ? this.data.gear
+        : preview?.gear || a?.weeks[start]?.gear || this.data.gear;
+    const gearImage = equipmentCatalog[gear[0]]?.img;
     this.setData({
-      gearLabel: this.data.gear.join('、') || '徒手',
+      gearLabel: gear.join('、') || '徒手',
+      gearImage: gearImage ? '/assets/' + gearImage : '',
       rows,
+      scheduled: rows.filter((r) => r.scheduled),
+      restDays: rows
+        .filter((r) => !r.scheduled)
+        .map((r) => r.weekday)
+        .join('、'),
+      weekLabel:
+        display.shortDate(start) + ' — ' + display.shortDate(rows[6].date),
+      meta: preview || a?.weeks[start] || null,
+      warm: items.filter((m) => m.pattern === '热身'),
+      mainItems: items.filter((m) => m.pattern !== '热身'),
       session: s || null,
       items,
       totalMinutes: Math.ceil((time.total || 0) / 60),
@@ -94,7 +198,10 @@ Page({
   },
   choose(e) {
     const { k, list } = e.currentTarget.dataset;
-    this.setData({ [k]: this.data[list][Number(e.detail.value)], preview: null });
+    this.setData({
+      [k]: this.data[list][Number(e.detail.value)],
+      preview: null
+    });
     this.draw();
   },
   weekdays(e) {
@@ -108,6 +215,7 @@ Page({
         encodeURIComponent(JSON.stringify(this.data.gear)),
       events: {
         applied: (gear) => {
+          this.useOwnedGear = false;
           this.setData({ gear, preview: null });
           this.draw();
         }
@@ -115,6 +223,7 @@ Page({
     });
   },
   bodyweight() {
+    this.useOwnedGear = false;
     this.setData({ gear: [], preview: null });
     this.draw();
   },
@@ -138,6 +247,7 @@ Page({
     api.run(this, async () => {
       const preview = await api.request('preview/plan', this.input());
       this.setData({
+        mode: 'week',
         preview,
         date: preview.dates.find((d) => preview.sessions[d]) || preview.start
       });
@@ -153,7 +263,13 @@ Page({
         JSON.stringify(
           p.dates.map((day) => {
             const s = p.sessions[day];
-            return s ? [day, s.type, s.items.map((i) => [i.id, i.sets, i.target, i.rest])] : [day];
+            return s
+              ? [
+                  day,
+                  s.type,
+                  s.items.map((i) => [i.id, i.sets, i.target, i.rest])
+                ]
+              : [day];
           })
         );
       if (!this.data.preview || describe(this.data.preview) !== describe(p)) {
@@ -167,7 +283,9 @@ Page({
       if (
         !(await api.confirm(
           '保存本周计划',
-          msg ? '这些待训练日期将被替换：' + msg : '保存从 ' + p.start + ' 开始的七天安排？'
+          msg
+            ? '这些待训练日期将被替换：' + msg
+            : '保存从 ' + p.start + ' 开始的七天安排？'
         ))
       )
         return;
@@ -186,11 +304,19 @@ Page({
     this.draw();
   },
   select(e) {
-    this.setData({ date: e.currentTarget.dataset.date });
+    this.setData({ date: e.currentTarget.dataset.date, mode: 'session' });
+    wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+    this.draw();
+  },
+  trainingDate(e) {
+    const date = e.detail.value;
+    this.setData({ date, start: api.monday(date), preview: null });
     this.draw();
   },
   demo(e) {
-    wx.navigateTo({ url: '/pages/detail/index?id=' + e.currentTarget.dataset.id });
+    wx.navigateTo({
+      url: '/pages/detail/index?id=' + e.currentTarget.dataset.id
+    });
   },
   async commit(action, data) {
     await api.mutate(action, { date: this.data.date, ...data });
@@ -219,15 +345,22 @@ Page({
         (d) =>
           d !== old &&
           a.sessions[d]?.items.some((i) =>
-            this.data.session.items.some((j) => byId.get(i.id)?.part === byId.get(j.id)?.part)
+            this.data.session.items.some(
+              (j) => byId.get(i.id)?.part === byId.get(j.id)?.part
+            )
           )
       );
       const w1 = api.monday(old),
         w2 = api.monday(to),
-        count = (w) => Object.keys(a.sessions).filter((d) => api.monday(d) === w).length;
+        count = (w) =>
+          Object.keys(a.sessions).filter((d) => api.monday(d) === w).length;
       const totals =
         w1 !== w2 && !other
-          ? '。调整后原周 ' + (count(w1) - 1) + ' 天，下周 ' + (count(w2) + 1) + ' 天'
+          ? '。调整后原周 ' +
+            (count(w1) - 1) +
+            ' 天，下周 ' +
+            (count(w2) + 1) +
+            ' 天'
           : '';
       if (
         !(await api.confirm(
@@ -248,8 +381,13 @@ Page({
     });
   },
   editor(e) {
-    const m = this.data.items.find((x) => x.key === e.currentTarget.dataset.key);
-    this.setData({ edit: { ...m, value: m.target, weight: '', future: false }, candidates: [] });
+    const m = this.data.items.find(
+      (x) => x.key === e.currentTarget.dataset.key
+    );
+    this.setData({
+      edit: { ...m, value: m.target, weight: '', future: false },
+      candidates: []
+    });
   },
   editField(e) {
     this.setData({ ['edit.' + e.currentTarget.dataset.k]: e.detail.value });
@@ -277,7 +415,11 @@ Page({
         m = this.data.edit;
       const b = { key: m.key };
       if (action === 'edit') {
-        Object.assign(b, { sets: Number(m.sets), target: Number(m.target), future: m.future });
+        Object.assign(b, {
+          sets: Number(m.sets),
+          target: Number(m.target),
+          future: m.future
+        });
         if (!(await this.scope(b))) return;
       }
       if (action === 'record')
@@ -285,7 +427,8 @@ Page({
           value: Number(m.value),
           weight: m.weight === '' ? null : Number(m.weight)
         });
-      if (action === 'remove' && !(await api.confirm('移除动作', m.name))) return;
+      if (action === 'remove' && !(await api.confirm('移除动作', m.name)))
+        return;
       if (action === 'reorder') {
         const i = this.data.items.findIndex((x) => x.key === m.key);
         b.index = i - 1;
@@ -303,29 +446,38 @@ Page({
         gear = api.state().weeks[this.data.start]?.gear || storage.read().owned;
       const candidates = await api.request('replacements', { id: m.id, gear });
       this.setData({ candidates });
-      if (!candidates.length) this.setData({ error: '没有器械匹配的同模式替代动作。' });
+      if (!candidates.length)
+        this.setData({ error: '没有器械匹配的同模式替代动作。' });
     });
   },
   add() {
-    api.run(this, async () => {
+    return api.run(this, async () => {
       if (!(await api.login())) return;
       const id = this.data.addId,
         m = byId.get(id);
       if (!m) return;
-      const gear = api.state().weeks[this.data.start]?.gear || storage.read().owned;
+      const gear =
+        api.state().weeks[this.data.start]?.gear || storage.read().owned;
       const missing = m.gear.filter(
-        (g) => !gear.includes(g) && !(m.alternatives?.[g] || []).some((v) => gear.includes(v))
+        (g) =>
+          !gear.includes(g) &&
+          !(m.alternatives?.[g] || []).some((v) => gear.includes(v))
       );
       if (
         missing.length &&
-        !(await api.confirm('所需器械不足', '缺少' + missing.join('、') + '。仍加入这天的计划？'))
+        !(await api.confirm(
+          '所需器械不足',
+          '缺少' + missing.join('、') + '。仍加入这天的计划？'
+        ))
       )
         return;
       await this.commit('add', { id, confirmGear: !!missing.length });
       this.setData({ addId: '' });
+      this.draw();
+      wx.showToast({ title: '已加入当天训练', icon: 'none' });
     });
   },
   browse() {
-    wx.switchTab({ url: '/pages/pick/index' });
+    nav.open('pick', { from: 'plan', date: this.data.date });
   }
 });

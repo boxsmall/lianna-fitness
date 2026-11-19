@@ -8,6 +8,7 @@
     "es6": true,
     "postcss": true,
     "minified": true,
-    "urlCheck": true
+    "urlCheck": true,
+    "minifyWXML": true
   }
 }

@@ -1,161 +1,195 @@
-* {
-  box-sizing: border-box;
-}
-body {
-  margin: 0;
-  background: #f8f9f6;
-  color: #22302b;
-  font:
-    16px/1.6 Inter,
-    'Microsoft YaHei',
-    sans-serif;
-}
-header {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  height: 64px;
-  background: #173e34;
-  color: white;
-  padding: 0 5vw;
-}
-header strong {
-  font-size: 28px;
-}
-#who {
-  margin-left: auto;
-}
-#shell:not([hidden]) {
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  max-width: 1500px;
-  margin: auto;
-}
-main {
-  padding: 24px 4vw 60px;
-  min-width: 0;
-}
-nav {
-  padding: 32px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-button,
-select,
-input,
-textarea {
-  font: inherit;
-  border: 1px solid #ccd4cc;
-  border-radius: 7px;
-  padding: 8px 12px;
-  background: white;
-  color: #19372e;
-}
-button {
-  cursor: pointer;
-}
-button:hover,
-nav .on {
-  background: #e1eee4;
-}
-nav button {
-  text-align: left;
-  border: 0;
-  background: transparent;
-  padding: 12px;
-}
-.primary {
-  background: #245b48;
-  color: white;
-}
-.primary:hover {
-  background: #174532;
-}
-h1 {
-  font-size: 30px;
-}
-h2 {
-  font-size: 20px;
-}
-label {
-  display: grid;
-  gap: 4px;
-  margin: 10px 0;
-}
-.box,
-form {
-  padding: 20px;
-  background: white;
-  border: 1px solid #dbe1d9;
-  border-radius: 12px;
-  margin: 12px 0;
-}
-.line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-textarea {
-  width: 100%;
-  min-height: 180px;
-  font:
-    14px/1.5 'IBM Plex Mono',
-    monospace;
-}
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 480px;
-  overflow: auto;
+[hidden] {
+  display: none !important;
 }
 #login {
-  max-width: 480px;
-  margin: 7vh auto;
+  width: min(420px, 90vw);
+  margin: 14vh auto;
+  padding: 30px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
-#notice:not(:empty) {
-  position: fixed;
-  bottom: 20px;
-  right: 22px;
-  padding: 12px 20px;
-  background: #253f36;
-  color: white;
-  border-radius: 8px;
+#login h1 {
+  margin-bottom: 20px;
 }
-table {
-  border-collapse: collapse;
+.box {
+  background: white;
+  border: 1px solid var(--line);
+  padding: 18px;
+  border-radius: 12px;
+  margin: 14px 0;
+}
+.line,
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.box button,
+details button,
+.line button {
+  color: var(--blue);
+  padding: 8px 10px;
+}
+.box img {
+  width: 31%;
+  object-fit: contain;
+}
+.box textarea {
   width: 100%;
+  min-height: 115px;
 }
-td,
-th {
-  padding: 8px;
-  text-align: left;
-  border-bottom: 1px solid #dde4df;
+.box pre,
+dialog pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
 }
-img {
-  max-width: 32%;
-  height: auto;
-}
-summary {
+.box summary {
   cursor: pointer;
 }
-small {
-  color: #52665a;
+.panel + .panel,
+.columns + .panel {
+  margin-top: 22px;
 }
-@media (max-width: 740px) {
-  #shell:not([hidden]) {
-    display: block;
+.columns > .panel + .panel {
+  margin-top: 0;
+}
+.row-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.row-title small {
+  display: block;
+}
+.row-title .thumb {
+  margin: 0;
+}
+.narrow {
+  grid-template-columns: 340px minmax(0, 1fr);
+}
+.panel h2 + label,
+.panel h2 + .form-grid,
+.panel h2 + .filters {
+  margin-top: 18px;
+}
+.filters input {
+  flex: 1;
+}
+.filters select {
+  width: auto;
+}
+.table-wrap .empty {
+  font-size: 13px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 10px;
+}
+.bar-col {
+  min-height: 1px;
+}
+.tile {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.admin-main .compare img {
+  max-height: 300px;
+  object-fit: contain;
+}
+.admin-main .panel label input[type='checkbox'] {
+  width: 16px;
+}
+.admin-main .panel .code {
+  white-space: pre-wrap;
+}
+.panel .notes {
+  margin-top: 16px;
+}
+@media (max-width: 850px) {
+  .narrow {
+    grid-template-columns: 1fr;
   }
-  nav {
-    flex-direction: row;
-    overflow: auto;
-    padding: 12px;
-  }
-  nav button {
-    white-space: nowrap;
-  }
-  main {
-    padding: 14px;
-  }
+}
+
+.trial-days {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.panel .primary.wide {
+  margin-top: 22px;
+}
+.compare p {
+  margin: 12px 0;
+}
+.panel .checkline {
+  margin: 12px 0;
+}
+.panel textarea {
+  min-height: 100px;
+  width: 100%;
+}
+.panel .nutrition {
+  margin-top: 20px;
+}
+
+.field-label {
+  margin: 16px 0 6px;
+}
+.role-picker {
+  position: relative;
+  max-width: 440px;
+}
+.role-picker > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 11px 38px 11px 12px;
+  border: 1px solid #dce1eb;
+  border-radius: 7px;
+  background: white;
+  min-height: 43px;
+}
+.role-picker > summary::-webkit-details-marker {
+  display: none;
+}
+.role-picker > summary::after {
+  content: '⌄';
+  position: absolute;
+  right: 14px;
+  top: 9px;
+}
+.role-picker[open] > summary {
+  border-color: #2448d8;
+}
+.role-options {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: white;
+  border: 1px solid #dce1eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #1721421a;
+}
+.role-options .checkline {
+  padding: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+.role-options .checkline:hover {
+  background: #edf0ff;
+}
+.role-picker + button {
+  margin-top: 16px;
 }

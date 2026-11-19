@@ -1,0 +1,1 @@
+<view class="nav"><button wx:for="{{tabs}}" wx:key="key" data-page="{{item.key}}" bindtap="follow" class="{{active===item.key?'active':''}}"><image src="/assets/{{item.icon}}{{active===item.key?'-on':''}}.png" mode="aspectFit"/>{{item.label}}</button></view>

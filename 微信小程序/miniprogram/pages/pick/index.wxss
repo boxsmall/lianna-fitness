@@ -4,3 +4,8 @@
 .part[disabled]{background:#f1f2f1;color:#9098a6}
 .results{padding-top:26rpx}
 .warm-label{margin:0 0 14rpx}
+
+
+.screen{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+
+.selection-dock{position:fixed;bottom:0;left:0;right:0;padding:14px 20px calc(14px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e0e4eb;z-index:20}.selection-dock .primary{margin-top:8px}.selecting{padding-bottom:170px}

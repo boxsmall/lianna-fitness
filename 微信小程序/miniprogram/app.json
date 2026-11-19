@@ -23,19 +23,27 @@
     "list": [
       {
         "pagePath": "pages/today/index",
-        "text": "今天"
+        "text": "今天",
+        "iconPath": "assets/today.png",
+        "selectedIconPath": "assets/today-on.png"
       },
       {
-        "pagePath": "pages/pick/index",
-        "text": "挑动作",
-        "iconPath": "assets/pick.png",
-        "selectedIconPath": "assets/pick-on.png"
+        "pagePath": "pages/week/index",
+        "text": "计划",
+        "iconPath": "assets/plan.png",
+        "selectedIconPath": "assets/plan-on.png"
       },
       {
-        "pagePath": "pages/saved/index",
-        "text": "我的收藏",
-        "iconPath": "assets/saved.png",
-        "selectedIconPath": "assets/saved-on.png"
+        "pagePath": "pages/diet/index",
+        "text": "饮食",
+        "iconPath": "assets/nutrition.png",
+        "selectedIconPath": "assets/nutrition-on.png"
+      },
+      {
+        "pagePath": "pages/account/index",
+        "text": "我的",
+        "iconPath": "assets/account.png",
+        "selectedIconPath": "assets/account-on.png"
       }
     ]
   },

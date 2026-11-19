@@ -1,18 +1,33 @@
-const { gearList, equipmentCatalog, groups, availableGear } = require('../../lib/catalog');
+const {
+  gearList,
+  equipmentCatalog,
+  groups,
+  availableGear
+} = require('../../lib/catalog');
 const storage = require('../../lib/storage');
 const inTraining = availableGear([], '全部');
 const choices = ['全部分类'].concat(groups);
 
 Page({
   data: { mode: 'active', query: '', choices, groupIndex: 0, groups: [] },
-  onLoad(options={}) {
+  onLoad(options = {}) {
     const saved = storage.read();
-    this.forPlan=options.from==='plan';
-    this.active = new Set(this.forPlan?JSON.parse(decodeURIComponent(options.gear||'%5B%5D')):saved.active);
+    this.setData({ mode: options.mode === 'owned' ? 'owned' : 'active' });
+    this.forPlan = options.from === 'plan';
+    this.active = new Set(
+      this.forPlan
+        ? JSON.parse(decodeURIComponent(options.gear || '%5B%5D'))
+        : saved.active
+    );
     this.owned = new Set(saved.owned);
     const filters = getApp().globalData.filters;
-    this.allowed = this.forPlan?new Set(gearList):availableGear(filters.parts, filters.category);
+    this.allowed = this.forPlan
+      ? new Set(gearList)
+      : availableGear(filters.parts, filters.category);
     this.refresh();
+  },
+  moreGear() {
+    this.setData({ expanded: !this.data.expanded });
   },
   refresh() {
     const inventory = this.data.mode === 'owned';
@@ -28,13 +43,29 @@ Page({
       const disabled = !inventory && !checked && !this.allowed.has(name);
       if (!byGroup.has(item.group)) byGroup.set(item.group, []);
       byGroup.get(item.group).push({
-        name, checked, disabled, img: '/assets/' + item.img,
-        note: !inTraining.has(name) ? '原库暂无正式动作' : disabled ? '当前条件不匹配' : ''
+        name,
+        checked,
+        disabled,
+        img: '/assets/' + item.img,
+        note: !inTraining.has(name)
+          ? '原库暂无正式动作'
+          : disabled
+            ? '当前条件不匹配'
+            : ''
       });
     }
     this.setData({
-      groups: groups.filter(name => byGroup.has(name)).map(name => ({ name, items: byGroup.get(name) })),
-      selectedCount: selected.size, canClear: !inventory && this.active.size > 0
+      common: ['哑铃', '训练凳', '单杠', '绳索拉力器'].map((name) => ({
+        name,
+        img: '/assets/' + equipmentCatalog[name].img,
+        checked: selected.has(name),
+        disabled: !inventory && !selected.has(name) && !this.allowed.has(name)
+      })),
+      groups: groups
+        .filter((name) => byGroup.has(name))
+        .map((name) => ({ name, items: byGroup.get(name) })),
+      selectedCount: selected.size,
+      canClear: !inventory && this.active.size > 0
     });
   },
   mode(event) {
@@ -63,11 +94,21 @@ Page({
     }
     this.refresh();
   },
-  clear() { this.active.clear(); this.refresh(); },
+  clear() {
+    this.active.clear();
+    this.refresh();
+  },
   save() {
-    if (!this.forPlan && !storage.saveGear(Array.from(this.owned), Array.from(this.active))) return;
+    if (
+      !this.forPlan &&
+      !storage.saveGear(Array.from(this.owned), Array.from(this.active))
+    )
+      return;
     const channel = this.getOpenerEventChannel();
-    if (channel && channel.emit) channel.emit('applied',Array.from(this.active));
-    wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/pick/index' }) });
+    if (channel && channel.emit)
+      channel.emit('applied', Array.from(this.active));
+    wx.navigateBack({
+      fail: () => wx.navigateTo({ url: '/pages/pick/index' })
+    });
   }
 });

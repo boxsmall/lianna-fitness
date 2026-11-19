@@ -107,9 +107,9 @@ function open(file) {
   }
   function operator(name, password, roles) {
     need(
-      name &&
-        password?.length >= 12 &&
-        roles.length &&
+      typeof name === 'string' && name.trim() &&
+        typeof password === 'string' && password.length >= 12 &&
+        Array.isArray(roles) && roles.length &&
         roles.every((r) => ['管理员', '运营', '审核', '客服'].includes(r)),
       '请设置至少12位密码及有效角色'
     );

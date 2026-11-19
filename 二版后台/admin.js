@@ -13,11 +13,22 @@ function note(t) {
 async function api(route, data = {}) {
   const res = await fetch('/api/' + route, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token
+    },
     body: JSON.stringify(data)
   });
   const v = await res.json();
-  if (!res.ok) throw Error(v.error);
+  if (!res.ok) {
+    if (res.status === 401 && route !== 'admin/login') {
+      token = '';
+      sessionStorage.removeItem('lianna.admin');
+      $('shell').hidden = true;
+      $('login').hidden = false;
+    }
+    throw Error(v.error);
+  }
   return v;
 }
 function el(tag, text, parent, cls) {
@@ -58,7 +69,14 @@ function select(parent, opts) {
 }
 const json = (v) => JSON.stringify(v, null, 2),
   fmt = (v) => JSON.parse(v.value);
-const pages = ['工作台', '动作与器械', '训练计划', '食材与饮食规则', 'AI 推荐与用量', '用户与反馈'];
+const pages = [
+  '工作台',
+  '动作与器械',
+  '训练计划',
+  '食材与饮食规则',
+  'AI 推荐与用量',
+  '用户与反馈'
+];
 const sections = {
   动作与器械: [['actions', '动作目录']],
   训练计划: [['templates', '周模板']],
@@ -68,7 +86,13 @@ const sections = {
   ],
   'AI 推荐与用量': [['ai', '模型与提示词']]
 };
-const samplePlan = { goal: '增肌', days: 3, minutes: 30, start: '2026-11-16', gear: ['哑铃'] };
+const samplePlan = {
+  goal: '增肌',
+  days: 3,
+  minutes: 30,
+  start: '2026-11-16',
+  gear: ['哑铃']
+};
 const sampleMeal = {
   profile: {
     sex: '女',
@@ -82,160 +106,17 @@ const sampleMeal = {
 };
 let generation = 0,
   focusVersion = null;
-async function show(title) {
+async function editModule(title, options = {}) {
   const id = ++generation;
   tab = title;
   $('title').textContent = title;
   body.replaceChildren();
-  for (const b of $('nav').children) b.classList.toggle('on', b.textContent === title);
-  if (title === '工作台') {
-    const date = inp(body, '统计日期', new Date().toLocaleDateString('sv-SE'), 'date'),
-      wrap = el('div', null, body);
-    async function load() {
-      const events = await api('admin/dashboard', { date: date.value });
-      if (id !== generation) return;
-      wrap.replaceChildren();
-      if (!events.length) el('p', '当日暂无记录。', wrap);
-      const groups = Object.groupBy(events, (e) =>
-        e.kind === '排课失败' ? e.kind + ' · ' + e.info.reason : e.kind
-      );
-      for (const [group, list] of Object.entries(groups)) {
-        const box = el('details', null, wrap, 'box');
-        el('summary', group + ' · ' + list.length, box);
-        for (const e of list) {
-          el('p', e.at + '  ' + JSON.stringify(e.info), box);
-          const module = {
-            排课失败: 'templates',
-            动图失败: 'actions',
-            'AI 调用': 'ai',
-            发布: e.info.module
-          }[e.kind];
-          const page = Object.keys(sections).find((p) => sections[p].some(([m]) => m === module));
-          if (page) {
-            button(
-              '查看关联版本',
-              async () => {
-                focusVersion = { module, version: e.info.to || e.info.version };
-                await show(page);
-              },
-              box
-            );
-          }
-        }
-        if (group === 'AI 调用') {
-          const successes = list.filter((e) => e.info.ok).length;
-          el(
-            'p',
-            successes
-              ? '每次成功推荐成本 ' +
-                  (list.reduce((s, e) => s + (e.info.cost || 0), 0) / successes).toFixed(5)
-              : '暂无成功推荐',
-            box
-          );
-        }
-      }
-    }
-    date.onchange = () => load().catch((e) => note(e.message));
-    await load();
-    return;
-  }
-  if (title === '用户与反馈') {
-    const list = await api('admin/tickets');
-    if (id !== generation) return;
-    const q = inp(body, '查询工单号、状态或反馈内容');
-    q.oninput = () => {
-      for (const card of body.querySelectorAll('[data-ticket]'))
-        card.hidden = !card.dataset.ticket.includes(q.value.trim());
-    };
-    for (const t of list) {
-      const box = el('section', null, body, 'box');
-      box.dataset.ticket = [t.id, t.status, t.detail, t.mealRef].join(' ');
-      el('h2', '#' + t.id + ' ' + t.kind + ' · ' + t.status, box);
-      el('p', t.detail, box);
-      const out = el('pre', '', box);
-      for (const [l, opts] of [
-        ['查版本', {}],
-        ['查看授权资料', { personal: true }],
-        ['标记处理', { resolve: true }]
-      ])
-        button(
-          l,
-          async () => (out.textContent = json(await api('admin/ticket', { id: t.id, ...opts }))),
-          box
-        );
-      if (roles.includes('管理员')) {
-        const user = inp(box, '分派给客服');
-        button(
-          '分派',
-          async () => {
-            await api('admin/assign', { id: t.id, assignee: user.value });
-            note('已分派');
-          },
-          box
-        );
-        if (t.kind === '注销' && t.status !== '已处理')
-          button(
-            '执行用户注销申请',
-            async () => {
-              if (confirm('删除该用户个人资料及训练、饮食记录？'))
-                out.textContent = json(await api('admin/ticket', { id: t.id, erase: true }));
-            },
-            box
-          );
-      }
-    }
-    if (!list.length) el('p', '暂无分派给你的工单。', body);
-    if (roles.includes('管理员')) {
-      const par = el('details', null, body, 'box');
-      el('summary', '管理后台账号与角色', par);
-      const n = inp(par, '账号'),
-        p = inp(par, '设置新密码', '', 'password'),
-        r = inp(par, '角色（多个用中文逗号分隔）');
-      button(
-        '保存账号',
-        async () => {
-          await api('admin/operator', {
-            name: n.value,
-            password: p.value,
-            roles: r.value.split(/[，,]/).map((x) => x.trim())
-          });
-          p.value = '';
-          note('已保存');
-        },
-        par
-      );
-    }
-    return;
-  }
-  if (title === 'AI 推荐与用量') {
-    const box = el('section', null, body, 'box');
-    el('h2', '近七天模型用量', box);
-    const end = inp(box, '截至日期', new Date().toLocaleDateString('sv-SE'), 'date'),
-      table = el('table', null, box);
-    async function trend() {
-      const rows = await api('admin/usage', { date: end.value });
-      table.replaceChildren();
-      const head = el('tr', null, table);
-      for (const h of ['日期', '尝试', '成功', '输入 / 输出 token', '费用']) el('th', h, head);
-      for (const v of rows) {
-        const tr = el('tr', null, table);
-        for (const value of [
-          v.date,
-          v.calls,
-          v.success,
-          v.input + ' / ' + v.output,
-          v.cost.toFixed(5)
-        ])
-          el('td', String(value), tr);
-      }
-    }
-    end.onchange = () => trend().catch((e) => note(e.message));
-    await trend();
-  }
+  heading(title, '草稿、审核与版本管理', () => openConsole(title));
   const selectModule = select(body, sections[title]),
     holder = el('div', null, body);
   if (focusVersion && sections[title].some(([m]) => m === focusVersion.module))
     selectModule.value = focusVersion.module;
+  if (options.module) selectModule.value = options.module;
   async function moduleView() {
     const module = selectModule.value;
     const meta = await api('admin/modules');
@@ -246,7 +127,10 @@ async function show(title) {
       const from = focusVersion;
       focusVersion = null;
       if (from.version) {
-        const obj = await api('admin/version', { module, version: from.version });
+        const obj = await api('admin/version', {
+          module,
+          version: from.version
+        });
         const old = el('details', null, holder, 'box');
         old.open = true;
         el('summary', '异常发生时的配置 v' + from.version, old);
@@ -258,11 +142,17 @@ async function show(title) {
     const drafts = meta.drafts.filter((d) => d.module === module);
     const ds = select(top, [
       ['', '当前发布内容'],
-      ...drafts.map((d) => [d.id, '#' + d.id + ' ' + d.status + ' · ' + d.byname])
+      ...drafts.map((d) => [
+        d.id,
+        '#' + d.id + ' ' + d.status + ' · ' + d.byname
+      ])
     ]);
     const target = el('div', null, holder);
     const paint = async () => {
-      const info = await api('admin/inspect', { module, id: Number(ds.value) || null });
+      const info = await api('admin/inspect', {
+        module,
+        id: Number(ds.value) || null
+      });
       if (id !== generation) return;
       target.replaceChildren();
       const d = info.draft,
@@ -289,10 +179,18 @@ async function show(title) {
           const filterSource = () => {
             pool.replaceChildren();
             const q = find.value.toLowerCase();
-            for (const m of source.filter((m) => JSON.stringify(m).toLowerCase().includes(q))) {
+            for (const m of source.filter((m) =>
+              JSON.stringify(m).toLowerCase().includes(q)
+            )) {
               const option = el(
                 'option',
-                m.id + ' ' + m.name + ' · ' + m.part + ' · ' + (m.gear.join('、') || '徒手'),
+                m.id +
+                  ' ' +
+                  m.name +
+                  ' · ' +
+                  m.part +
+                  ' · ' +
+                  (m.gear.join('、') || '徒手'),
                 pool
               );
               option.value = m.id;
@@ -340,7 +238,11 @@ async function show(title) {
           const q = filter.value.toLowerCase();
           current.forEach((v, i) => {
             if (
-              !(JSON.stringify(v) + ' ' + JSON.stringify(source.find((m) => m.id === v.id) || {}))
+              !(
+                JSON.stringify(v) +
+                ' ' +
+                JSON.stringify(source.find((m) => m.id === v.id) || {})
+              )
                 .toLowerCase()
                 .includes(q)
             )
@@ -359,6 +261,8 @@ async function show(title) {
             const x = fmt(obj);
             x[k] = val;
             obj.value = json(x);
+            current[Number(choices.value)] = x;
+            setValue(current);
           };
           const strings =
             module === 'actions'
@@ -455,14 +359,28 @@ async function show(title) {
             for (const t of ['original', 'new', 'cover']) {
               const im = el('img', null, imgs);
               im.src = '/media/' + t + '/' + encodeURIComponent(v.id);
-              im.alt = t === 'original' ? '原版' : t === 'new' ? '重制演示' : '封面';
+              im.alt =
+                t === 'original' ? '原版' : t === 'new' ? '重制演示' : '封面';
             }
         }
         filter.oninput = match;
         choices.onchange = load;
         match();
+        if (options.item) {
+          const index = current.findIndex((v) => v.id === options.item);
+          if (index >= 0) {
+            choices.value = String(index);
+            load();
+          } else if (module === 'actions') {
+            const details = panel.querySelector('details');
+            details.open = true;
+            const input = details.querySelector('input');
+            input.value = options.item;
+            input.oninput();
+          }
+        }
         button(
-          '将条目修改写入草稿内容',
+          '应用 JSON 条目修改',
           () => {
             const v = fmt(obj);
             current[Number(choices.value)] = v;
@@ -492,11 +410,19 @@ async function show(title) {
       const diff = el('pre', '', compare);
       const line = el('div', null, panel, 'line');
       const reason = inp(panel, '发布、退回或回退原因');
-      if (roles.includes('运营') || (module === 'ai' && roles.includes('管理员')))
+      if (
+        roles.includes('运营') ||
+        (module === 'ai' && roles.includes('管理员'))
+      )
         button(
           '另存草稿',
           async () => {
-            const r = await api('admin/draft', { module, base, value: fmt(edit) });
+            const r = await api('admin/draft', {
+              module,
+              base,
+              value: fmt(edit)
+            });
+            options.draft = r.id;
             note('已保存 #' + r.id);
             await moduleView();
           },
@@ -519,7 +445,11 @@ async function show(title) {
           button(
             l,
             async () => {
-              await api('admin/' + action, { module, id: d.id, reason: reason.value });
+              await api('admin/' + action, {
+                module,
+                id: d.id,
+                reason: reason.value
+              });
               await moduleView();
             },
             line
@@ -531,7 +461,10 @@ async function show(title) {
       button(
         '比较历史内容',
         async () => {
-          const v = await api('admin/version', { module, version: Number(history.value) });
+          const v = await api('admin/version', {
+            module,
+            version: Number(history.value)
+          });
           diff.textContent = json(v);
           compare.open = true;
           setTimeout(() => (diff.textContent = json(v)), 0);
@@ -557,7 +490,9 @@ async function show(title) {
       const sample = inp(
           trial,
           '输入样例',
-          json(['actions', 'templates'].includes(module) ? samplePlan : sampleMeal),
+          json(
+            ['actions', 'templates'].includes(module) ? samplePlan : sampleMeal
+          ),
           'area'
         ),
         out = el('pre', '', trial);
@@ -565,7 +500,11 @@ async function show(title) {
         '运行候选配置',
         async () => {
           out.textContent = json(
-            await api('preview/draft', { module, value: fmt(edit), sample: fmt(sample) })
+            await api('preview/draft', {
+              module,
+              value: fmt(edit),
+              sample: fmt(sample)
+            })
           );
         },
         trial
@@ -574,8 +513,16 @@ async function show(title) {
         '与已发布配置并排比较',
         async () => {
           const input = fmt(sample);
-          const current = await api('preview/draft', { module, value: info.active, sample: input });
-          const draft = await api('preview/draft', { module, value: fmt(edit), sample: input });
+          const current = await api('preview/draft', {
+            module,
+            value: info.active,
+            sample: input
+          });
+          const draft = await api('preview/draft', {
+            module,
+            value: fmt(edit),
+            sample: input
+          });
           out.textContent = json({ 已发布结果: current, 候选结果: draft });
         },
         trial
@@ -593,7 +540,9 @@ async function show(title) {
         );
       }
     };
-    if (drafts.length) ds.value = String(drafts[0].id);
+    ds.value = drafts.some((d) => d.id === options.draft)
+      ? String(options.draft)
+      : '';
     ds.onchange = () => paint().catch((e) => note(e.message));
     await paint();
   }
@@ -607,13 +556,9 @@ async function enter() {
   $('shell').hidden = false;
   $('exit').hidden = false;
   $('who').textContent = me.name + ' · ' + roles.join('、');
-  $('nav').replaceChildren();
-  for (const p of pages) {
-    if (roles.every((r) => r === '客服') && !['工作台', '用户与反馈'].includes(p)) continue;
-    if (p === '用户与反馈' && !roles.some((r) => ['管理员', '客服'].includes(r))) continue;
-    button(p, () => show(p), $('nav'));
-  }
-  await show('工作台');
+  $('avatar').textContent = me.name.slice(0, 1);
+  mountConsole();
+  await openConsole(routeTitle());
 }
 $('sign').onsubmit = async (e) => {
   e.preventDefault();
@@ -627,6 +572,7 @@ $('sign').onsubmit = async (e) => {
     note(err.message);
   }
 };
+$('sign-submit').disabled = false;
 $('exit').onclick = async () => {
   await api('admin/logout').catch(() => {});
   sessionStorage.removeItem('lianna.admin');
@@ -634,6 +580,5 @@ $('exit').onclick = async () => {
 };
 if (token)
   enter().catch((e) => {
-    sessionStorage.removeItem('lianna.admin');
     note(e.message);
   });

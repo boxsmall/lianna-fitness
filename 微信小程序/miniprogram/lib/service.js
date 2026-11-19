@@ -1,5 +1,5 @@
 // 发布时填写微信后台登记的业务 HTTPS 地址，也可通过 extConfig.liannaApi 提供。
-const apiOrigin = '';
+const apiOrigin = 'https://admin.yijiandot.com.cn';
 const sessionKey = 'lianna.session.v2';
 const storage = require('./storage');
 let account = null;
@@ -51,12 +51,12 @@ async function refresh() {
   return value;
 }
 async function login() {
-  if (credentials()) {
+  const previous = credentials();
+  if (previous) {
     try {
       return await refresh();
     } catch (e) {
       if (e.status !== 401) throw e;
-      clearLocal();
     }
   }
   if (!(await confirm('微信登录', '登录后可以保存周计划、训练记录和饮食资料，并同步本机收藏。')))
@@ -65,11 +65,16 @@ async function login() {
     wx.login({ success: resolve, fail: reject })
   );
   const result = await request('login', { code }, '');
-  const guest = storage.read();
+  const sameAccount = previous?.accountId === result.accountId;
+  const guest = previous && !sameAccount
+    ? { owned: [], active: [], favorites: [] }
+    : storage.read();
+  const base = sameAccount ? storage.savedBase() : null;
+  if (previous && !sameAccount) clearLocal();
   wx.setStorageSync(sessionKey, { token: result.token, accountId: result.accountId });
   account = result.state;
   try {
-    await mutate('sync', { ...guest, merge: true });
+    await mutate('sync', { ...guest, merge: !sameAccount, base });
     return account;
   } catch (e) {
     throw new Error('登录成功，首次同步未完成。请在「我的」重试。' + e.message);
@@ -141,7 +146,11 @@ function clearLocal() {
 }
 async function logout() {
   if (wx.getStorageSync(pendingKey())) await sendPending();
-  await request('logout');
+  try {
+    await request('logout');
+  } catch (e) {
+    if (e.status !== 401) throw e;
+  }
   clearLocal();
 }
 async function sync() {
