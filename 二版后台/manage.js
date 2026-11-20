@@ -1,6 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s),
   $$ = (s) => [...document.querySelectorAll(s)];
+// Restore only a previously authenticated session; load() revalidates it on the server.
 let token = sessionStorage.getItem("lianna.admin") || "",
   D = {},
   A = { generations: [], calls: [], bills: [] },
@@ -72,6 +73,7 @@ const can = (p) => D.me?.permissions.includes(p),
 const userLink = (id) =>
     id?.startsWith("op:") ? esc(id) : link(user(id)?.name || id, "user/" + id),
   moveLink = (id) => link(move(id)?.name || id, "move/" + (move(id)?.id || id));
+const userAvatar = u => /^\/avatars\/[a-f0-9]{48}$/.test(u.avatar || '') ? `<img class="avatar" src="${esc(u.avatar)}" alt="用户头像">` : `<span class="avatar">${esc((u.name || '未').slice(0,1))}</span>`;
 const groups = [
   ["数据概览", [["overview", "运营概览", "overview.view"]]],
   [
@@ -100,6 +102,7 @@ const groups = [
       ["config", "模型与生成配置", "ai.edit"],
     ],
   ],
+  ['饮食管理', [['foods', '食材管理', 'content.view'], ['nutrition', '营养与热量规则', 'content.view']]],
   [
     "系统管理",
     [
@@ -118,6 +121,7 @@ function toast(s) {
   toast.t = setTimeout(() => ($("#toast").textContent = ""), 5000);
 }
 async function api(path, data = {}) {
+  const requestToken = token;
   const r = await fetch("/api/" + path, {
       method: "POST",
       headers: {
@@ -128,9 +132,11 @@ async function api(path, data = {}) {
     }),
     v = await r.json();
   if (!r.ok) {
-    if (r.status === 401) {
+    if (r.status === 401 && requestToken === token && path !== 'admin/login') {
       token = "";
       sessionStorage.removeItem("lianna.admin");
+      D = {}; A = {generations:[],calls:[],bills:[]}; detail = {}; config = {};
+      $('#dialog').close(); $('#app').replaceChildren();
       $("#workspace").hidden = true;
       $("#login").hidden = false;
     }
@@ -141,12 +147,18 @@ async function api(path, data = {}) {
 const call = (name, b = {}) => api("admin/v3/" + name, b),
   ledger = (name, b = {}) => api("admin/ledger/" + name, b);
 async function load() {
-  D = await call("data");
-  A = can("ai.view")
+  const session = token;
+  if (!session) return;
+  const next = await call("data");
+  const nextAI = next.me.permissions.includes("ai.view")
     ? await ledger("data")
     : { generations: [], calls: [], bills: [] };
+  if (session !== token) return;
+  D = next;
+  A = nextAI;
   $("#workspace").hidden = false;
   $("#login").hidden = true;
+  $('#auth-status').hidden = true;
   $("#identity").textContent = D.me.display + " · " + D.me.roles.join(" / ");
   await render();
 }
@@ -156,8 +168,6 @@ function shell() {
       {
         user: "users",
         staffdetail: "staff",
-        foods: "templates",
-        nutrition: "templates",
         plan: "plans",
         meal: "meals",
         move: "moves",
@@ -308,8 +318,6 @@ async function render() {
       {
         user: "users",
         staffdetail: "staff",
-        foods: "templates",
-        nutrition: "templates",
         plan: "plans",
         meal: "meals",
         move: "moves",
@@ -354,6 +362,16 @@ async function refresh() {
   config = {};
   await load();
 }
+const livePages = new Set(['overview','users','favorites','plans','meals','moves','generations','calls','costs','staff','logs']);
+let liveLoading = false;
+async function refreshLive() {
+  if (!token || liveLoading || document.hidden || $('#dialog').open || !livePages.has(route().page) || document.activeElement?.matches('input,textarea,select')) return;
+  liveLoading = true;
+  try { await refresh(); } catch (e) { toast(e.message); } finally { liveLoading = false; }
+}
+setInterval(refreshLive, 30000);
+window.addEventListener('focus', refreshLive);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshLive(); });
 function download(rows, name) {
   const text =
       "\ufeff" +

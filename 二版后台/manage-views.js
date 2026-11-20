@@ -5,8 +5,8 @@ function usersPage() {
   return (
     title(
       "用户管理",
-      "从一个账号，查看完整的训练、收藏与饮食数据。",
-      can("users.export") ? btn("导出当前结果", "export:users") : "",
+      "每30秒自动更新；返回此页时同步最新登录用户。",
+      btn('刷新列表', 'refresh') + (can("users.export") ? btn("导出当前结果", "export:users") : ""),
     ) +
     summary([
       ["账号总数", us.length, "已登录并同步的账号"],
@@ -18,7 +18,7 @@ function usersPage() {
       ["已保存计划", plans().length, "按计划 ID 去重"],
       ["当前收藏", favorites().length, "有效用户—动作关系"],
     ]) +
-    `<section class="section">${filters([["status", "全部账号状态", ["正常", "已限制"]]], "搜索用户 ID 或昵称")}${page(rows, ["用户", "账号状态", "注册 / 最近活跃", "当前收藏", "周计划", "完成训练", "AI 生成 / 调用", "AI 费用", "操作"], (u) => [`<div class="identity"><span class="avatar">未</span><div>${userLink(u.id)}<span class="sub mono" title="${u.id}">${esc(u.id)}</span></div></div>`, badge(u.status), `${time(u.created)}<span class="sub">${time(u.last)}</span>`, link(u.prefs.favorites.length, "favorites?user=" + u.id), link(u.plans.length, "plans?user=" + u.id), u.history.length + " 次", A.generations.filter((g) => g.user === u.id).length + " / " + userCalls(u.id).length, costCell(userCalls(u.id)), link("查看详情", "user/" + u.id)])}</section>`
+    `<section class="section">${filters([["status", "全部账号状态", ["正常", "已限制"]]], "搜索用户 ID 或昵称")}${page(rows, ["用户", "账号状态", "注册 / 最近活跃", "当前收藏", "周计划", "完成训练", "AI 生成 / 调用", "AI 费用", "操作"], (u) => [`<div class="identity">${userAvatar(u)}<div>${userLink(u.id)}<span class="sub mono" title="${u.id}">${esc(u.id)}</span></div></div>`, badge(u.status), `${time(u.created)}<span class="sub">${time(u.last)}</span>`, link(u.prefs.favorites.length, "favorites?user=" + u.id), link(u.plans.length, "plans?user=" + u.id), u.history.length + " 次", A.generations.filter((g) => g.user === u.id).length + " / " + userCalls(u.id).length, costCell(userCalls(u.id)), link("查看详情", "user/" + u.id)])}</section>`
   );
 }
 async function userPage() {
@@ -167,7 +167,7 @@ async function userPage() {
       "所有关联入口使用同一份用户数据。",
       link("返回用户列表", "users"),
     ) +
-    `<div class="user-banner"><div class="identity"><span class="avatar large">未</span><div><h1>${esc(u.name)}</h1><p class="mono">${esc(u.id)}</p><div class="meta">${badge(u.status)}<span>注册 ${time(u.created)}</span><span>最近活跃 ${time(u.last)}</span></div></div></div><div class="mini-stats"><div><b>${u.prefs.favorites.length}</b><span>收藏</span></div><div><b>${u.plans.length}</b><span>周计划</span></div><div><b>${u.history.length}</b><span>完成训练</span></div></div></div>` +
+    `<div class="user-banner"><div class="identity">${userAvatar(u)}<div><h1>${esc(u.name)}</h1><p class="mono">${esc(u.id)}</p><div class="meta">${badge(u.status)}<span>注册 ${time(u.created)}</span><span>最近活跃 ${time(u.last)}</span></div></div></div><div class="mini-stats"><div><b>${u.prefs.favorites.length}</b><span>收藏</span></div><div><b>${u.plans.length}</b><span>周计划</span></div><div><b>${u.history.length}</b><span>完成训练</span></div></div></div>` +
     tabs(
       [
         ["profile", "基础资料"],

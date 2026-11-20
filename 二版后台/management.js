@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS admin_events(id TEXT PRIMARY KEY,at TEXT,actor TEXT,r
 CREATE TABLE IF NOT EXISTS move_edits(id TEXT PRIMARY KEY,value TEXT NOT NULL,version INTEGER DEFAULT 0,draft TEXT,status TEXT DEFAULT '已发布',byname TEXT,at TEXT);
 CREATE TABLE IF NOT EXISTS move_history(id TEXT,version INTEGER,value TEXT,at TEXT,actor TEXT,reason TEXT,PRIMARY KEY(id,version));
 CREATE TABLE IF NOT EXISTS dictionaries(kind TEXT,name TEXT,value TEXT,version INTEGER DEFAULT 1,PRIMARY KEY(kind,name));`);
+  s.db.exec('CREATE TABLE IF NOT EXISTS user_avatars(owner TEXT PRIMARY KEY,id TEXT UNIQUE,mime TEXT,data BLOB)');
   s.db.exec(
     "CREATE TABLE IF NOT EXISTS uploaded_media(hash TEXT PRIMARY KEY,data BLOB,at TEXT,actor TEXT);",
   );
@@ -259,7 +260,7 @@ function data(s, p, b = {}) {
   if (p.has("users.view")) {
     const rows = s
       .all(
-        "SELECT a.*,m.id uid,m.created,m.last,m.status,m.note FROM accounts a JOIN user_meta m ON m.owner=a.id",
+        "SELECT a.*,m.id uid,m.created,m.last,m.status,m.note FROM accounts a JOIN user_meta m ON m.owner=a.id ORDER BY COALESCE(m.last,m.created,'') DESC,m.id",
       )
       .filter((a) => inScope(s, p, a.id));
     result.users = rows.map((a) => {
@@ -271,7 +272,8 @@ function data(s, p, b = {}) {
         }));
       return {
         id: a.uid,
-        name: "未设置昵称",
+        name: v.identity?.nickname || "未设置昵称",
+        avatar: v.identity?.avatar || '',
         created: a.created,
         last: a.last,
         status: a.status,

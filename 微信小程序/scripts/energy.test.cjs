@@ -19,3 +19,13 @@ test('分餐调整单独提交，手动营养由显式开关控制',async()=> {
   f.page.data.form.estimate=false;f.page.data.form.useManualMacros=false;assert.deepEqual(plain(f.page.profileArgs().targets),{kcal:2172});
   f.page.data.form.useManualMacros=true;assert.deepEqual(plain(f.page.profileArgs().targets),f.profile.targets);
 });
+test('可选开关关闭仍提交预览保存，修改表单清除旧提示',async()=> {
+  const f=fixture();f.page.data.error='请使用专业人员提供的目标';
+  for(const k of ['generalAdult','resistance']) f.page.input({currentTarget:{dataset:{k}},detail:{value:false}});
+  assert.equal(f.page.data.error,'');
+  await f.page.saveProfile();await new Promise(setImmediate);
+  for(const call of f.calls.filter(x=>x.route==='profile/preview'||x.action==='profile')) {
+    assert.equal(call.body.generalAdult,false);assert.equal(call.body.resistance,false);
+  }
+  assert.ok(f.calls.some(x=>x.action==='profile'));
+});

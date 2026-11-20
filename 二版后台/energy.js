@@ -36,11 +36,10 @@ function calculate(input, rules, resting, maintenance) {
   need(p?.approved, '目标饮食规则尚未发布，请先使用已有专业目标');
   validate(p);
   need(goals.includes(input.goal), '请选择减脂、维持或增肌目标');
-  need(input.generalAdult === true && input.age >= 18 && input.age <= 64, '通用方案适用于18至64岁一般健康成年人，请使用专业目标');
+  need(input.age >= 18 && input.age <= 64, '通用方案适用于18至64岁一般健康成年人，请使用专业目标');
   need(input.height >= 100 && input.height <= 250 && input.weight >= 25 && input.weight <= 350, '请核对身高厘米、体重千克，或使用专业目标');
   const bmi = input.weight / (input.height / 100) ** 2;
   need(bmi >= 18.5 && bmi < 30, '当前身体资料超出通用营养分配范围，请使用专业目标');
-  need(input.goal !== '增肌' || input.resistance === true, '增肌方案需要配合抗阻训练，请确认通常训练情况');
   const factor = input.goal === '减脂' ? 1 - p.deficit : input.goal === '增肌' ? 1 + p.surplus : 1;
   const kcal = Math.round(maintenance * factor);
   need(kcal >= (input.sex === '男' ? p.floorMale : p.floorFemale), '目标低于自动方案下限，请使用专业目标，不应继续压低饮食');

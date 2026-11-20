@@ -1,5 +1,6 @@
 <view class="screen"><block wx:if="{{mode==='mine'}}"><view class="header"><text class="title">我的</text><image class="brand" src="/assets/brand.svg" mode="aspectFit"/></view><view class="vcard between" style="margin-top:22px"><view><view class="heading">{{logged?'账号已同步':'同步你的训练与收藏'}}</view><text class="muted">换台设备，也能继续练</text></view><button class="link" data-mode="login" bindtap="screen">{{logged?'管理':'登录'}}</button></view>
 <view class="menu-row between"><text>周训练计划</text><button class="link" data-page="week" bindtap="follow">查看</button></view>
+<view wx:if="{{logged}}" class="menu-row between"><image wx:if="{{avatar}}" class="profile-avatar" src="{{avatar}}" mode="aspectFill"/><text>{{nickname||'昵称与头像'}}</text><button class="link" bindtap="editIdentity">{{nickname?'修改':'完善资料'}}</button></view>
 <view class="menu-row between"><text>我的收藏</text><button class="link" data-page="saved" bindtap="follow">查看</button></view>
 <view class="menu-row between"><text>我的器械</text><button class="link" data-page="equipment" data-mode="owned" bindtap="follow">查看</button></view>
 <view class="menu-row between"><text>目标与体重趋势</text><button class="link" data-page="progress" bindtap="follow">查看</button></view><view class="menu-row between"><text>饮食资料</text><button class="link" data-page="diet" data-mode="profile" bindtap="follow">查看</button></view>
@@ -7,6 +8,15 @@
 <button wx:if="{{logged}}" class="link" data-mode="feedback" bindtap="screen">反馈与账号</button></block>
 <block wx:elif="{{mode==='login'}}"><view style="padding:45px 0 26px;text-align:center"><image src="/assets/icon.svg" style="width:65px;height:70px" mode="aspectFit"/><view class="title" style="margin:22px 0 12px">让进步跟着你</view><view class="muted">同步你的器械、收藏和训练计划。<view>在另一台设备，也能接着练。</view></view></view><view class="vcard"><view class="strong">首次登录后</view><view class="subtitle">本地收藏与账号收藏合并，重复动作自动去重。</view></view><button wx:if="{{!logged||needsLogin}}" class="primary" bindtap="login">微信登录</button><block wx:else><button class="primary" bindtap="sync">同步收藏与器械</button><button class="link wide" bindtap="logout">退出账号</button></block><button class="link wide" data-page="pick" bindtap="follow">继续浏览动作</button></block>
 <block wx:elif="{{mode==='history'}}"><view class="header"><text class="title">训练记录</text><image class="brand" src="/assets/brand.svg" mode="aspectFit"/></view><view class="subtitle">已完成的训练</view><view wx:for="{{history}}" wx:key="key" class="vcard"><text class="tag">已完成</text><view class="heading section-head">{{item.type}}</view><text class="muted">{{item.date}} · 实际完成 {{item.sets}} 组</text><view wx:for="{{item.items}}" wx:for-item="move" wx:key="key" class="choice-row rule history-row"><image class="thumb" src="{{move.cover}}" mode="aspectFit" webp/><view class="grow"><view class="strong">{{move.name}}</view><text class="muted">计划 {{move.sets}} × {{move.target}} · 实际 {{move.done}} 组</text></view><button class="link" data-id="{{move.id}}" bindtap="demo">查看</button></view><button class="link wide" data-date="{{item.date}}" bindtap="record">查看训练详情</button></view><view wx:if="{{!history.length}}" class="empty">暂无已完成的训练。</view></block>
+<block wx:elif="{{mode==='identity'}}">
+  <view class="header"><text class="title">完善昵称与头像</text></view>
+  <view class="subtitle">由你选择和确认，用于显示账号资料。可以稍后填写，不影响登录和训练。</view>
+  <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="chooseAvatar"><image wx:if="{{avatar}}" class="profile-avatar" src="{{avatar}}" mode="aspectFill"/><text>{{avatar?'更换头像':'选择微信头像'}}</text></button>
+  <label>昵称<input class="field" type="nickname" value="{{nickname}}" maxlength="24" bindinput="nickname" bindblur="nickname" placeholder="填写昵称，也可使用微信昵称"/></label>
+  <checkbox-group bindchange="identityConsent"><label class="fine"><checkbox value="agree" checked="{{consentIdentity}}"/>同意将所选昵称和头像保存到练哪，用于账号展示及管理员识别</label></checkbox-group>
+  <button class="primary" bindtap="saveIdentity" disabled="{{busy}}">确认保存</button>
+  <button class="link wide" data-mode="mine" bindtap="screen">暂不填写</button>
+</block>
 <view wx:else class="vcard"><view class="heading">反馈与账号</view>
     <picker range="{{meals}}" range-key="name" bindchange="meal">
       <view class="field">{{mealRef||'关联已保存餐次（选填）'}} ▾</view>

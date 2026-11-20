@@ -359,12 +359,14 @@ function build(store, options = {}) {
       actor = store.owner(token),
       c = content();
     if (route === 'admin/login') {
+      return store.tx(() => {
+      const token=store.opLogin(b.name,b.password);
       const meta=M.operatorMeta(store,b.name||'');
       need(meta.enabled,'账号已停用',401);
-      const token=store.opLogin(b.name,b.password);
       store.run('UPDATE operator_meta SET last=? WHERE name=?',M.now(),b.name);
       M.audit(store,'op:'+b.name,'登录',b.name,'成功','',null,null,req);
       return {token};
+      });
     }
     if(route==='admin/replay') {
       const p=M.principal(store,actor);M.allow(p,'ai.test');M.allow(p,'ai.sensitive');need(b.reason?.trim(),'请填写重放原因');
@@ -590,6 +592,7 @@ function build(store, options = {}) {
         return a;
       need(a.rev === b.rev, '另一台设备已更新，请重新载入再保存', 409);
       const before=structuredClone(a);
+      if (b.action === 'identity') b = {...b, body: require('./identity').prepare(store,actor,b.body)};
       if(b.action==='add'){const source=R.moves.get(b.body.id);need(!c.actions.some(m=>m.id===source?.sourceId&&m.visible===false),'此动作已下架，请选择其他动作')}
       change(a, b.action, b.body, c);
       const stamp=M.now();
@@ -648,6 +651,8 @@ function build(store, options = {}) {
   return http.createServer(async (req, res) => {
     try {
       req.requestId=M.id('R');
+      const avatar=/^\/avatars\/([a-f0-9]{48})$/.exec(req.url);
+      if(req.method==='GET' && avatar){const row=store.get('SELECT mime,data FROM user_avatars WHERE id=?',avatar[1]);need(row,'头像不存在',404);res.writeHead(200,{'Content-Type':row.mime,'X-Content-Type-Options':'nosniff','Cache-Control':'private,max-age=300'});return res.end(Buffer.from(row.data));}
       const uploaded=/^\/uploaded\/([a-f0-9]{40})\.webp$/.exec(req.url);
       if(req.method==='GET'&&uploaded){const row=store.get('SELECT data FROM uploaded_media WHERE hash=?',uploaded[1]);need(row,'素材不存在',404);res.writeHead(200,{'Content-Type':'image/webp','Cache-Control':'public,max-age=31536000,immutable'});return res.end(Buffer.from(row.data));}
       const media = /^\/media\/(original|new|cover)\/(\d{4})$/.exec(req.url);

@@ -60,6 +60,7 @@ const activityList = (events) =>
       : "<li>尚无已记录的动态</li>"
   }</ul>`;
 const actionNames = {
+  identity: '更新昵称与头像',
   sync: "同步器械与收藏",
   savePlan: "保存训练计划",
   add: "添加训练动作",
@@ -243,7 +244,7 @@ async function completeUserPage() {
       "用户列表 / " + u.id,
       link("查看操作记录", "logs?object=" + u.id),
     ) +
-    `<div class="user-banner"><div class="identity"><span class="avatar large">${esc(u.name[0])}</span><div><div class="flex"><h1>${esc(u.name)}</h1>${badge(u.status)}</div><div class="meta"><span class="mono">${esc(u.id)}</span><span>注册于 ${time(u.created)}</span><span>最近活跃 ${time(u.last)}</span></div></div></div><div class="mini-stats"><div><b>${u.prefs.favorites.length}</b><span>当前收藏</span></div><div><b>${u.plans.length}</b><span>周计划</span></div><div><b>${u.history.length}</b><span>完成训练</span></div></div></div>` +
+    `<div class="user-banner"><div class="identity">${userAvatar(u)}<div><div class="flex"><h1>${esc(u.name)}</h1>${badge(u.status)}</div><div class="meta"><span class="mono">${esc(u.id)}</span><span>注册于 ${time(u.created)}</span><span>最近活跃 ${time(u.last)}</span></div></div></div><div class="mini-stats"><div><b>${u.prefs.favorites.length}</b><span>当前收藏</span></div><div><b>${u.plans.length}</b><span>周计划</span></div><div><b>${u.history.length}</b><span>完成训练</span></div></div></div>` +
     tabs(
       [
         ["profile", "基础资料"],

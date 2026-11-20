@@ -95,7 +95,7 @@ function open(file) {
   }
   function session(owner) {
     const token = randomBytes(32).toString('hex');
-    run('INSERT INTO sessions VALUES(?,?,?)', hash(token), owner, Date.now() + 7 * 86400000);
+    run('INSERT INTO sessions VALUES(?,?,?)', hash(token), owner, Date.now() + (owner.startsWith('op:') ? 8 * 3600000 : 7 * 86400000));
     return token;
   }
   function owner(token) {
@@ -124,6 +124,7 @@ function open(file) {
     run('DELETE FROM sessions WHERE owner=?', 'op:' + name);
   }
   function opLogin(name, password) {
+    need(typeof name === 'string' && name.trim() && typeof password === 'string' && password.length > 0, '请填写账号和密码', 401);
     const row = get('SELECT * FROM operators WHERE name=?', name);
     const digest = scryptSync(password || '', row?.salt || 'missing', 32);
     need(row && timingSafeEqual(digest, Buffer.from(row.digest, 'hex')), '账号或密码有误', 401);

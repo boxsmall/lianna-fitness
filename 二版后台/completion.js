@@ -93,6 +93,7 @@ function endpoint(s, actor, action, b, req) {
       s.run("DELETE FROM sessions WHERE owner=?", t.owner);
       s.run("DELETE FROM requests WHERE owner=?", t.owner);
       s.run("DELETE FROM accounts WHERE id=?", t.owner);
+      s.run("DELETE FROM user_avatars WHERE owner=?", t.owner);
       s.run("DELETE FROM business_events WHERE owner=?", t.owner);
       s.run("DELETE FROM favorite_events WHERE owner=?", t.owner);
       s.run("DELETE FROM account_activity WHERE owner=?", t.owner);

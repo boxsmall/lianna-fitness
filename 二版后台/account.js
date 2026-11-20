@@ -15,7 +15,10 @@ function change(a, action, b, c, now = new Date()) {
       need(s.status !== '已完成', '已完成训练仅可查看');
       return s;
     };
-  if (action === 'sync') {
+  if (action === 'identity') {
+    need(typeof b.nickname === 'string' && b.confirmedAt && (!b.avatar || /^\/avatars\/[a-f0-9]{48}$/.test(b.avatar)), '个人资料无效');
+    a.identity = {nickname:b.nickname,avatar:b.avatar,confirmedAt:b.confirmedAt};
+  } else if (action === 'sync') {
     const clean = (list, allowed) => {
       need(Array.isArray(list), '清单格式无效');
       return [...new Set(list.filter(allowed))];

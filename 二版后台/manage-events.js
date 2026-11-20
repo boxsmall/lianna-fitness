@@ -13,10 +13,14 @@ document.addEventListener("click", async (e) => {
       await api("admin/logout");
       sessionStorage.removeItem("lianna.admin");
       token = "";
+      D = {}; A = {generations:[],calls:[],bills:[]}; detail = {}; config = {};
+      $('#app').replaceChildren(); $('#dialog').close(); $('#sign').reset();
       $("#workspace").hidden = true;
       $("#login").hidden = false;
       return;
     }
+    if (a === 'refresh') { await refresh(); toast('已更新到最新数据'); return; }
+    if (a === 'retry-session') { location.reload(); return; }
     if (a === "reset") {
       filtersState[route().page] = {};
       location.hash = "/" + route().page;
@@ -700,7 +704,8 @@ document.addEventListener("submit", async (e) => {
     if (form.getAttribute("id") === "sign") {
       const r = await api("admin/login", Object.fromEntries(f));
       token = r.token;
-      sessionStorage.setItem("lianna.admin", token);
+      sessionStorage.setItem('lianna.admin', token);
+      form.reset();
       $("#login-error").textContent = "";
       await load();
     } else if (form.getAttribute("id") === "filter-form") {
@@ -850,11 +855,21 @@ document.addEventListener("submit", async (e) => {
 });
 window.addEventListener("hashchange", () => {
   if ($("#dialog").open) $("#dialog").close();
-  render();
+  if (!token) return;
+  if (livePages.has(route().page)) refreshLive();
+  else render();
 });
 $("#sign-submit").disabled = false;
 if (token)
   load().catch((e) => {
-    toast(e.message);
-    $("#login").hidden = false;
+    if (token) {
+      $('#auth-status').innerHTML = '<p>暂时无法验证登录状态，请重试。</p>' + btn('重新连接','retry-session');
+      $('#auth-status').hidden = false;
+      $('#login').hidden = true;
+    } else {
+      $('#auth-status').hidden = true;
+      $('#login').hidden = false;
+      $('#login-error').textContent = e.message;
+    }
   });
+else { $('#auth-status').hidden = true; $('#login').hidden = false; }

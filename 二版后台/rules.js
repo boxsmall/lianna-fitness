@@ -262,7 +262,7 @@ function profile(input, rules) {
   if (input.estimate) {
     need(rules.estimation?.approved, '尚无已审核的能量估算规则，可填写已有目标');
     integer(input.age, 18, 120, '通用估算仅适用于成年人');
-    need(input.generalAdult === true, '请使用专业人员提供的目标');
+    // Optional self-description: an unchecked switch is not a medical exclusion.
     const e = rules.estimation;
     need(Object.hasOwn(e.activity, input.activity), '请选择日常活动水平');
     const resting = weight * e.weight + height * e.height + input.age * e.age + e.offset[sex];

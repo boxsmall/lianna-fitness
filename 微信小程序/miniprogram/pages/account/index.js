@@ -9,9 +9,10 @@ Page({
   screen(e) {
     this.setData({ mode: e.currentTarget.dataset.mode, error: '' });
   },
-  data: { logged: false, tickets: [], error: '' },
+  data: { logged: false, tickets: [], error: '', nickname: '', avatar: '', consentIdentity: false },
   onShow() {
     const intent = nav.take('account');
+    if (!intent && this.data.mode === 'identity') return;
     this.setData({ mode: intent?.mode || 'mine', error: '' });
     this.load();
   },
@@ -25,6 +26,8 @@ Page({
           name: m.date + ' ' + ['早餐', '午餐', '晚餐', '加餐'][m.index]
         }));
         this.setData({
+          nickname: a.identity?.nickname || '',
+          avatar: api.asset(a.identity?.avatar),
           history: a.history
             .slice()
             .reverse()
@@ -64,8 +67,38 @@ Page({
   login() {
     api.run(this, async () => {
       if (!(await api.login())) return;
-      this.setData({ mode: 'mine' });
       await this.load();
+      this.setData({ mode: api.state()?.identity ? 'mine' : 'identity' });
+    });
+  },
+  editIdentity() {
+    this.avatarData = '';
+    const identity=api.state()?.identity;
+    this.setData({mode:'identity',nickname:identity?.nickname || '',avatar:api.asset(identity?.avatar),consentIdentity:false,error:''});
+  },
+  nickname(e) { this.setData({nickname:e.detail.value,error:''}); },
+  identityConsent(e) { this.setData({consentIdentity:e.detail.value.includes('agree'),error:''}); },
+  chooseAvatar(e) {
+    if (!e.detail.avatarUrl) return;
+    api.run(this, async () => {
+      const path=e.detail.avatarUrl;
+      const file=await new Promise((resolve,reject)=>wx.getFileSystemManager().readFile({filePath:path,encoding:'base64',success:resolve,fail:reject}));
+      if (file.data.length > 350000) throw Error('头像超过256KB，请选择较小的图片');
+      this.avatarData=file.data;
+      this.setData({avatar:path,consentIdentity:false});
+    });
+  },
+  saveIdentity() {
+    api.run(this, async () => {
+      const nickname=this.data.nickname.trim();
+      if (!nickname) throw Error('请填写昵称');
+      if (!this.data.consentIdentity) throw Error('请确认保存昵称和头像');
+      if (!(await api.login())) return;
+      await api.mutate('identity',{nickname,avatarData:this.avatarData || undefined,consent:true});
+      this.avatarData='';
+      await this.load();
+      this.setData({mode:'mine',consentIdentity:false});
+      wx.showToast({title:'资料已保存'});
     });
   },
   sync() {

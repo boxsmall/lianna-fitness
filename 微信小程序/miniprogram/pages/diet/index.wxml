@@ -6,9 +6,11 @@
 </label>
 <picker range="{{levels}}" data-k="activity" data-list="levels" bindchange="pick">
 <view class="field">通常整周活动 · {{form.activity}} ▾</view>
-</picker><view class="fine">综合工作、走动和通常实际训练。久坐：多数时间坐着、运动少；轻活动：有规律走动或轻量运动；中等活动：经常走动并有规律训练。高体力劳动请用专业目标。</view><view>通常有抗阻训练 <switch checked="{{form.resistance}}" data-k="resistance" bindchange="input"/></view>
-<view>我是一般健康成年人，非孕哺期且无医嘱饮食限制 <switch checked="{{form.generalAdult}}" data-k="generalAdult" bindchange="input"/>
+</picker><view class="fine">综合工作、走动和通常实际训练。久坐：多数时间坐着、运动少；轻活动：有规律走动或轻量运动；中等活动：经常走动并有规律训练。高体力劳动请用专业目标。</view><view>通常有抗阻训练（选填） <switch checked="{{form.resistance}}" data-k="resistance" bindchange="input"/></view>
+<view>我是一般健康成年人，非孕哺期且无医嘱饮食限制（选填） <switch checked="{{form.generalAdult}}" data-k="generalAdult" bindchange="input"/>
 </view>
+<view class="fine">以上两项可不选，不影响继续估算。通用估算面向一般健康、非孕哺期且无医嘱饮食限制的成年人；有特殊饮食需求时，请选择“我有目标”填写专业目标。</view>
+<view wx:if="{{form.goal==='增肌' && !form.resistance}}" class="fine">增肌目标需要配合抗阻训练；可先估算饮食，再安排训练。</view>
 </block>
 <label wx:else>已有每日能量目标（千卡）<input class="field" type="digit" value="{{form.kcal}}" data-k="kcal" bindinput="input"/>
 </label>

@@ -19,12 +19,26 @@ test('静息公式和目标系数正确，减脂/维持/增肌不同，旧营养
   assert.equal(legacy.targets.carb,330); assert.equal(legacy.targets.protein,120);
 });
 test('已审核策略、人群、单位、下限和手动营养一致性均在服务器检查',()=> {
-  for (const b of [{generalAdult:false},{age:17},{age:65},{height:1.75},{weight:150},{goal:'快速减脂'},{goal:'增肌',resistance:false}]) assert.throws(()=>R.profile({...input,...b},nutrition));
+  for (const b of [{age:17},{age:65},{height:1.75},{weight:150},{goal:'快速减脂'}]) assert.throws(()=>R.profile({...input,...b},nutrition));
   assert.throws(()=>R.profile(input,{...nutrition,goalPolicy:{...E.defaults}}),/尚未发布/);
   assert.throws(()=>R.profile({...input,sex:'女',height:150,weight:45,age:60,activity:'久坐'},nutrition),/下限/);
   assert.throws(()=>R.profile({...input,estimate:false,targets:{kcal:2000,carb:100,protein:100,fat:50}},nutrition),/不一致/);
   const manual=R.profile({...input,estimate:false,targets:{kcal:2000}},nutrition); assert.equal(manual.targets.protein,100);assert.equal(manual.energy,null);
   assert.throws(()=>validate('nutrition',{...nutrition,goalPolicy:{...nutrition.goalPolicy,deficit:.8}}),/参数/);
+});
+test('两个开关可关闭或省略，三种目标均可预览保存且不伪造健康确认',()=> {
+  for (const goal of E.goals) for (const generalAdult of [undefined,false,true]) for (const resistance of [undefined,false,true]) {
+    const args={...input,goal,generalAdult,resistance};
+    const preview=R.profile(args,nutrition);
+    assert.equal(preview.generalAdult,generalAdult===true);
+    assert.equal(preview.resistance,resistance===true);
+    assert.equal(preview.targets.kcal,{减脂:2172,维持:2556,增肌:2683}[goal]);
+    E.checkTargets(preview.targets);
+    const a=account();change(a,'profile',{...args,version:3},config);
+    assert.deepEqual(a.profile.targets,preview.targets);
+  }
+  const legacy=R.profile({...input,goal:undefined,energyModel:undefined,generalAdult:false,resistance:false},nutrition);
+  assert.equal(legacy.targets.kcal,2556);
 });
 test('保存要求预览版本；改分餐不改变估算和旧餐快照',()=> {
   const a=saved(account()); const before=structuredClone(a.profile);

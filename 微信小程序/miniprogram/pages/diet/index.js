@@ -177,6 +177,7 @@ Page({
     const key = e.currentTarget.dataset.k;
     this.setData({
       ['form.' + key]: e.detail.value,
+      error: '',
       ...(key === 'allergens'
         ? { allergenOptions: allergenOptions(e.detail.value) }
         : {})
@@ -184,7 +185,7 @@ Page({
   },
   pick(e) {
     const { k, list } = e.currentTarget.dataset;
-    this.setData({ ['form.' + k]: this.data[list][Number(e.detail.value)] });
+    this.setData({ ['form.' + k]: this.data[list][Number(e.detail.value)], error: '' });
   },
   edit() {
     this.setData({ editing: true });

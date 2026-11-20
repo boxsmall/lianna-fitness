@@ -1142,6 +1142,7 @@ dialog::backdrop {
 [hidden] {
   display: none !important;
 }
+#auth-status { padding: 80px 24px; text-align: center; color: #64748b; }
 #login {
   display: grid;
   place-items: center;

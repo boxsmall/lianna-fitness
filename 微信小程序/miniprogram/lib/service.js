@@ -60,7 +60,7 @@ async function login() {
       if (e.status !== 401) throw e;
     }
   }
-  if (!(await confirm('微信登录', '登录后可以保存周计划、训练记录和饮食资料，并同步本机收藏。')))
+  if (!(await confirm('微信登录', '同意使用微信身份登录练哪，用于同步收藏、训练和饮食记录。昵称和头像由你另行选择保存，不会自动读取。')))
     return null;
   const { code } = await new Promise((resolve, reject) =>
     wx.login({ success: resolve, fail: reject })
@@ -201,6 +201,7 @@ async function run(page, fn) {
   }
 }
 module.exports = {
+  asset: path => /^\/avatars\/[a-f0-9]{48}$/.test(path || '') ? base() + path : '',
   request,
   credentials,
   refresh,
