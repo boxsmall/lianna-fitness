@@ -41,15 +41,17 @@ python3 -m http.server 8000 --directory "网站代码/dist"
 
 第二版包含微信登录、训练计划、饮食推荐及电脑端管理后台。详见[第二版需求文档](docs/练哪小程序第二版需求.md)。
 
-[小程序及初版设计归档](docs/第二版页面设计/) · [新版后台需求文档](docs/练哪管理后台功能需求_重设计版.md) · [新版后台设计说明](docs/后台重设计稿/设计说明.md) · [新版后台设计文件](docs/后台重设计稿/)
+[最新小程序设计](docs/小程序_Material_TDesign/) · [小程序改版说明](docs/小程序_Material_TDesign/设计说明.md) · [制作工具与参考项目记录](docs/小程序_Material_TDesign/制作工具与参考项目.md) · [小程序及初版设计归档](docs/第二版页面设计/) · [新版后台需求文档](docs/练哪管理后台功能需求_重设计版.md) · [新版后台设计说明](docs/后台重设计稿/设计说明.md) · [新版后台设计文件](docs/后台重设计稿/)
 
-- 小程序：15 个页面，覆盖创建周计划、调日期、换动作、改组次、饮食资料、营养目标、食材搭配和收藏。
+- 小程序最新设计：Material 视觉层级 + TDesign 小程序组件规范，共 15 页。支持直接新建今天训练、多选与连续追加动作、独立替换、组次编辑；保留周计划、饮食与收藏。
 - 新版管理后台：15 个主菜单及对应详情，覆盖用户资料、收藏、训练与饮食、全部动作、AI 生成和费用、管理员权限与操作日志。动作目录含完整 1,324 条记录与封面。
-- 这是可点击的 HTML 设计原型。登录、AI、持久化、发布与回退使用演示数据，不连接生产服务。
+- 这些是可点击的 HTML 设计原型，不连接生产服务。新版小程序稿将训练草稿保存到当前浏览器；真实微信登录、云同步、AI 与生产发布未接入。TDesign 组件对应表和 WXSS 主题变量已交付，尚未集成小程序运行时。
 
-### 小程序设计总览
+### 最新小程序设计总览
 
-![练哪第二版小程序设计](docs/第二版页面设计/mobile-overview.png)
+![练哪 Material × TDesign 小程序设计](docs/小程序_Material_TDesign/设计总览.jpg)
+
+[全部页面目录](docs/小程序_Material_TDesign/index.html) · [设计说明](docs/小程序_Material_TDesign/设计说明.md) · [制作记录](docs/小程序_Material_TDesign/制作工具与参考项目.md) · [验收记录](docs/小程序_Material_TDesign/验收记录.md)
 
 ### 新版管理后台设计总览
 
@@ -75,3 +77,14 @@ python3 -m http.server 8002 --directory "docs/后台重设计稿"
 ```
 
 然后打开 `http://localhost:8002`。新版原型已包含所需脚本、1,324 个动作封面及 10 个动作的动态演示样例；用户、账单和管理操作均为演示数据，不连接真实服务。
+
+
+### 查看最新小程序设计（Material × TDesign）
+
+在仓库根目录运行：
+
+```sh
+python3 -m http.server 8003 --directory "docs/小程序_Material_TDesign"
+```
+
+打开 `http://localhost:8003/index.html` 看 15 页截图，或 `http://localhost:8003/mobile.html#today` 体验交互。设计包包含全部依赖素材，可以离线查看。工具、采用项目和版本记录见[制作工具与参考项目](docs/小程序_Material_TDesign/制作工具与参考项目.md)。

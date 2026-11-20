@@ -1,0 +1,2 @@
+TDesign Icons SVG 0.4.8，来自 npm 官方 registry。项目 https://github.com/Tencent/tdesign-icons ，MIT License。
+原练哪动作素材与来源说明沿用旧版，见 assets/来源说明/。
