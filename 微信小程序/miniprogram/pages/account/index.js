@@ -1,6 +1,7 @@
 const { byId, media } = require('../../lib/catalog');
 const api = require('../../lib/service');
 const nav = require('../../lib/navigation');
+const storage = require('../../lib/storage');
 Page({
   follow: nav.follow,
   demo(e) {
@@ -11,13 +12,15 @@ Page({
   },
   data: { logged: false, tickets: [], error: '', nickname: '', avatar: '', consentIdentity: false },
   onShow() {
+    this.getTabBar?.()?.setData({selected:'account',hidden:false});
     const intent = nav.take('account');
     if (!intent && this.data.mode === 'identity') return;
     this.setData({ mode: intent?.mode || 'mine', error: '' });
     this.load();
   },
   async load() {
-    this.setData({ logged: !!api.credentials(), needsLogin: false, history: [] });
+    const prefs=storage.read();
+    this.setData({ logged: !!api.credentials(), needsLogin: false, history: [], historyCount:0, favoriteCount:prefs.favorites.length,gearCount:prefs.owned.length });
     if (api.credentials()) {
       try {
         const a = await api.refresh();
@@ -28,13 +31,14 @@ Page({
         this.setData({
           nickname: a.identity?.nickname || '',
           avatar: api.asset(a.identity?.avatar),
+          historyCount:a.history.length,
           history: a.history
             .slice()
             .reverse()
             .map((s) => ({
               key: s.key,
               date: s.date,
-              type: s.type,
+              type: s.name || s.type,
               items: (s.items || [])
                 .filter((i) => i.pattern !== '热身')
                 .map((i) => ({
@@ -57,7 +61,7 @@ Page({
     }
   },
   record(e) {
-    nav.open('week', { date: e.currentTarget.dataset.date, mode: 'session' });
+    nav.open('week', { date: e.currentTarget.dataset.date, sessionKey:e.currentTarget.dataset.key, mode: 'session' });
   },
   meal(e) {
     this.setData({

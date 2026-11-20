@@ -1,11 +1,1 @@
-.part-grid{display:flex;flex-wrap:wrap;justify-content:space-between;margin-top:12rpx}
-.part{display:flex;align-items:center;justify-content:center;width:24%;min-height:84rpx;margin-top:10rpx;border:2rpx solid #d9dde4;border-radius:12rpx;background:white;font-weight:600}
-.part.on{color:#2448d8;background:#edf1ff;border-color:#2448d8}
-.part[disabled]{background:#f1f2f1;color:#9098a6}
-.results{padding-top:26rpx}
-.warm-label{margin:0 0 14rpx}
-
-
-.screen{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
-
-.selection-dock{position:fixed;bottom:0;left:0;right:0;padding:14px 20px calc(14px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e0e4eb;z-index:20}.selection-dock .primary{margin-top:8px}.selecting{padding-bottom:170px}
+.search-box{background:#edf0fa;border-radius:26px;display:flex;align-items:center;padding:0 15px;gap:8px;height:48px}.search-box input{flex:1;font-size:13px;height:44px;min-width:0}.source-tabs{display:flex;gap:23px;border-bottom:1px solid #e1e5ef;margin:14px 0 6px}.source-tab{font-size:14px;min-height:45px;position:relative;color:#68718a;padding:5px 0}.source-tab.on{color:#2448d8;font-weight:650;border-bottom:3px solid #2448d8}.part-scroll{width:calc(100% + 40px);margin:0 -20px;white-space:nowrap}.part-pills{display:inline-flex;gap:7px;padding:13px 20px 6px}.part-pills .chip{white-space:nowrap;font-size:12px;min-height:35px;padding:7px 12px}.equipment-line,.equipment-line>view{display:flex;align-items:center;gap:5px}.equipment-line{justify-content:space-between;color:#69748b;font-size:11px}.equipment-line .link{font-size:11px}.category-filter{display:flex;align-items:center;justify-content:space-between;color:#69748b;font-size:11px;margin:0 0 10px}.exercise-list{background:white;border-radius:18px;border:1px solid #e5e8f0;padding:0 12px}.group{margin-top:15px}.group-head{font-size:12px}.catalog-footnote{font-size:11px;text-align:center;color:#7b8395;margin:18px 0}.selecting{padding-bottom:calc(125px + env(safe-area-inset-bottom))}

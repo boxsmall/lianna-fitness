@@ -68,7 +68,7 @@ const actionNames = {
   swap: "替换动作",
   move: "调整课程日期",
   sets: "修改组次",
-  profile: "更新身体与饮食资料", profileRatios: "调整分餐比例", measurement: "记录体重", energyFeedback: "执行反馈", acceptEnergy: "接受饮食调整", cancelEnergy: "取消饮食调整", consumeMeal: "确认实际摄入", pause: "暂停计时", resume: "继续计时", workoutType: "选择活动类型",
+  createSession: "新建独立训练", sessionGoal: "修改本次训练目标", sessionName: "修改训练名称", energyAssessment: "确认近期执行评估", profile: "更新身体与饮食资料", profileRatios: "调整分餐比例", measurement: "记录体重", energyFeedback: "执行反馈", acceptEnergy: "接受饮食调整", cancelEnergy: "取消饮食调整", consumeMeal: "确认实际摄入", pause: "暂停计时", resume: "继续计时", workoutType: "选择活动类型",
   saveMeal: "保存餐次",
   start: "开始训练",
   finish: "完成训练",
@@ -116,7 +116,7 @@ async function completeUserPage() {
         ["首次注册", time(u.created)],
         ["资料更新时间", time(events[0]?.at)],
       ]) +
-        `<div class="sensitive flex between top-space"><span>${p ? "过敏原：" + esc(listText(p.allergens)) + "；忌口：" + esc(listText(p.avoid)) : "身体资料、过敏原与忌口需授权后查看，访问会留痕。"}</span>${!p && can("users.sensitive") ? btn("授权查看", "reveal-user:" + u.id) : ""}</div><div class="top-space">${note("用户资料由用户更新。后台保留更新时间与历史，不直接覆盖身体数据。") + (p ? `<details class="top-space"><summary>计算依据与历史目标</summary><pre>${esc(JSON.stringify({current:p.energy,history:d.energyHistory,pending:d.pendingEnergy,feedback:d.energyFeedback},null,2))}</pre></details>` : "")}</div>`,
+        `<div class="sensitive flex between top-space"><span>${p ? "过敏原：" + esc(listText(p.allergens)) + "；忌口：" + esc(listText(p.avoid)) : "身体资料、过敏原与忌口需授权后查看，访问会留痕。"}</span>${!p && can("users.sensitive") ? btn("授权查看", "reveal-user:" + u.id) : ""}</div><div class="top-space">${note("用户资料由用户更新。后台保留更新时间与历史，不直接覆盖身体数据。") + (p ? `<details class="top-space"><summary>计算依据与历史目标</summary><pre>${esc(JSON.stringify({current:p.energy,history:d.energyHistory,pending:d.pendingEnergy,feedback:d.energyFeedback,assessment:d.energyAssessment},null,2))}</pre></details>` : "")}</div>`,
     )}${section(
       "体重更新记录",
       p
@@ -433,7 +433,7 @@ async function completePlanPage() {
       ss
         .map((s) =>
           section(
-            "实际训练 · " + s.date,
+            "实际训练 · " + s.date + " · " + (s.goal || "未记录目标"),
             kv([
               ["课程 ID", esc(s.key)],
               ["开始时间", time(s.startedAt)],
@@ -450,7 +450,7 @@ async function completePlanPage() {
                     actual
                       .map(
                         (x, n) =>
-                          "第" +
+                          (x.extra ? "加练 · 第" : "第") +
                           (n + 1) +
                           "组 " +
                           x.value +
@@ -1812,12 +1812,12 @@ async function foodsPage() {
 const goalPolicyFields = [
   ['deficit','减脂缺口比例（0.15 即 15%）',0.15], ['surplus','增肌盈余比例（0.05 即 5%）',0.05],
   ['proteinPerKg','抗阻训练蛋白质 g/kg',1.6], ['fatPercent','抗阻训练脂肪供能 %',25],
-  ['floorMale','男性自动目标下限 千卡',1500], ['floorFemale','女性自动目标下限 千卡',1200],
+  ['floorMale','男性自动推荐复核阈值 千卡',1500], ['floorFemale','女性自动推荐复核阈值 千卡',1200],
   ['adjustment','单次调整 千卡',100], ['observationDays','调整后观察天数',14], ['minSamples','每周最少体重记录天数',3]
 ];
 function goalPolicyEditor(value) {
   const p = value || {};
-  return '<h3 class="top-space">阶段目标与趋势调整</h3>' + note('减脂/维持/增肌共用阶段目标。通常训练已包含在活动系数中，不重复加回运动热量。通用自动分配限18至64岁、BMI 18.5至不足30的一般健康成人；低于下限时拦截，不机械抬高结果。') +
+  return '<h3 class="top-space">阶段目标与趋势调整</h3>' + note('减脂/维持/增肌共用阶段目标。通常训练已包含在活动系数中，不重复加回运动热量。通用估算面向成年人，65岁及以上确认估算局限后继续，BMI仅作参考。低于复核阈值时暂停自动配餐，可填写已有专业目标；阈值不是个人安全下限。') +
     select('启用已核对的目标策略','goal-approved',['停用','启用'],p.approved?'启用':'停用') +
     '<div class="form-grid three">' + goalPolicyFields.map(([key,label,fallback])=>field(label,'goal-'+key,p[key]??fallback,'number')).join('') + '</div>' +
     field('目标策略依据与适用范围','goal-source',p.source || 'Mifflin-St Jeor https://pubmed.ncbi.nlm.nih.gov/2305711/；运动蛋白质 https://pmc.ncbi.nlm.nih.gov/articles/PMC5477153/；15%缺口、5%盈余为产品起点，结合实际趋势复核。','textarea');

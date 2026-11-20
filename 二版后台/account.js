@@ -2,6 +2,7 @@
 const R = require('./rules');
 const { need } = R;
 const E = require('./energy'), W = require('./workout-energy');
+const T = require('../微信小程序/miniprogram/lib/training');
 function prepare(a, input, c) {
   const args = { ...input, anchor: Object.keys(a.weeks).sort()[0] || input.start };
   return R.plan(args, c, a.prefs, a.sessions);
@@ -9,9 +10,10 @@ function prepare(a, input, c) {
 function change(a, action, b, c, now = new Date()) {
   const today = E.date(now), time = new Date(now).getTime();
   E.effective(a, today);
-  const s = a.sessions[b.date],
+  const s = T.select(a.sessions, b.date, b.sessionKey),
     workout = () => {
       need(s, '此日没有训练');
+      need(b.sessionKey || T.onDate(a.sessions, b.date).length <= 1, '当天有多次训练，请先选择要操作的训练');
       need(s.status !== '已完成', '已完成训练仅可查看');
       return s;
     };
@@ -49,10 +51,8 @@ function change(a, action, b, c, now = new Date()) {
       '目录已更新，请重新预览',
       409
     );
-    for (const date of p.dates) {
-      if (!p.sessions[date]) delete a.sessions[date];
-      else a.sessions[date] = p.sessions[date];
-    }
+    for (const [key, old] of Object.entries(a.sessions)) if (p.dates.includes(old.date || key)) delete a.sessions[key];
+    Object.assign(a.sessions, p.sessions);
     a.weeks[p.start] = {
       goal: p.goal,
       days: p.days,
@@ -61,6 +61,22 @@ function change(a, action, b, c, now = new Date()) {
       version: p.version
     };
     if (!a.stageGoal) a.stageGoal = p.goal === '日常健身' ? '维持' : p.goal;
+  } else if (action === 'createSession') {
+    R.day(b.date);
+    need(b.goal == null || R.goals.includes(b.goal), '训练目标无效');
+    const week = R.monday(b.date), goal = b.goal || a.weeks[week]?.goal || (a.stageGoal === '维持' ? '日常健身' : a.stageGoal) || '日常健身';
+    const next = { key: require('node:crypto').randomUUID(), date: b.date, goal, type: '自行编排', items: [], budget: a.weeks[week]?.minutes || 30, status: '待训练', manual: true };
+    next.timing = R.timing([]); T.put(a.sessions, next);
+    a.weeks[week] ||= { goal, days: 1, minutes: next.budget, gear: [...a.prefs.owned], source: 'manual', version: { actions: c.version.actions, templates: c.version.templates } };
+    a.weeks[week].days = new Set(T.all(a.sessions).filter(v=>R.monday(v.date)===week).map(v=>v.date)).size;
+    a.lastCreatedSession = next.key;
+  } else if (action === 'sessionName') {
+    workout(); need(s.status === '待训练', '开始后保留训练名称');
+    need(typeof b.name === 'string' && b.name.trim().length > 0 && b.name.trim().length <= 40, '训练名称请填写1～40个字符');
+    s.name=b.name.trim();
+  } else if (action === 'sessionGoal') {
+    workout(); need(s.status === '待训练', '训练开始后保留原目标');
+    need(R.goals.includes(b.goal), '训练目标无效'); s.goal = b.goal;
   } else if (action === 'move') {
     workout();
     need(s.status === '待训练', '训练开始后不能调课');
@@ -68,31 +84,40 @@ function change(a, action, b, c, now = new Date()) {
       to = b.to;
     R.day(to);
     need(to !== b.date && to >= from && to <= R.shift(from, 13), '请选择本周或下周的日期');
-    const other = a.sessions[to];
+    const other = b.swapSessionKey ? T.select(a.sessions, to, b.swapSessionKey) : T.select(a.sessions, to);
     if (other) {
-      need(
-        to <= R.shift(from, 6) && b.swap && other.status === '待训练',
-        '目标日已有训练，请交换或重选'
-      );
-      other.date = b.date;
-      other.manual = true;
-      a.sessions[b.date] = other;
-    } else delete a.sessions[b.date];
+      need(to <= R.shift(from, 6), '跨周顺延请选择空闲日');
+      if (b.swap) {
+        need(other.status === '待训练' && (b.swapSessionKey || T.onDate(a.sessions,to).length === 1), '请选择要交换的待训练课程');
+        T.remove(a.sessions, other); T.remove(a.sessions, s);
+        other.date = b.date; other.manual = true; T.put(a.sessions, other);
+      }
+    }
+    T.remove(a.sessions, s);
     s.date = to;
     s.manual = true;
     s.carried = to > R.shift(from, 6) || s.carried;
-    a.sessions[to] = s;
+    T.put(a.sessions, s);
+    const destinationWeek = R.monday(to);
+    a.weeks[destinationWeek] ||= { ...a.weeks[from], source:'manual' };
+    for (const week of new Set([from,destinationWeek])) if (a.weeks[week])
+      a.weeks[week].days = new Set(T.all(a.sessions).filter(v=>R.monday(v.date)===week).map(v=>v.date)).size;
   } else if (action === 'start') {
     workout();
     need(s.items.length, '请先加入动作');
     if (s.status === '待训练') {
+      const recent = Object.values(a.measurements || {}).filter(x=>x.date<=today).sort((x,y)=>y.date.localeCompare(x.date))[0];
+      const age = b.age == null ? a.profile?.age : b.age, weight = b.weight == null ? (recent?.weight || a.profile?.weight) : b.weight;
+      if (s.workoutType) {
+        need(Number.isInteger(age) && age >= 18 && Number.isFinite(weight) && weight > 0, '估算消耗需要成人年龄与有效体重（千克）');
+        need(age < 65 || b.ageAcknowledged === true, '65岁及以上请确认训练消耗估算局限后继续');
+      }
       s.snapshot = structuredClone(s.items);
       s.actual = {};
       s.status = '训练中';
       s.startedAt = new Date(now).toISOString();
       s.timer = { seconds: 0, running: true, lastBeat: time };
-      const recent = Object.values(a.measurements || {}).filter(x=>x.date<=today).sort((x,y)=>y.date.localeCompare(x.date))[0];
-      s.energyPerson = a.profile ? { age: a.profile.age, weight: recent?.weight || a.profile.weight } : null;
+      s.energyPerson = { age, weight, ageAcknowledged: b.ageAcknowledged === true };
     }
   } else if (action === 'workoutType') {
     workout();
@@ -112,7 +137,7 @@ function change(a, action, b, c, now = new Date()) {
     const i = s.items.find((m) => m.key === b.key);
     need(i, '动作不存在');
     const list = (s.actual[i.key] ||= []);
-    need(list.length < i.sets, '本动作计划组已完成');
+    need(list.length < i.sets || b.extra === true, '计划组已完成，可选择“加练一组”');
     R.integer(b.value, 1, 10000, '实际次数或秒数无效');
     if (b.weight != null) need(Number.isFinite(b.weight) && b.weight >= 0, '重量无效');
     list.push({
@@ -121,6 +146,7 @@ function change(a, action, b, c, now = new Date()) {
       target: i.target,
       value: b.value,
       weight: b.weight ?? null
+      , extra: list.length >= i.sets
     });
     s.actual[i.key] = list;
   } else if (action === 'finish') {
@@ -134,22 +160,22 @@ function change(a, action, b, c, now = new Date()) {
     a.history.push(structuredClone(s));
   } else if (action === 'add' || action === 'addMany') {
     R.day(b.date);
+    need(!b.sessionKey || s, '所选训练不存在，请重新选择');
+    need(b.sessionKey || T.onDate(a.sessions,b.date).length <= 1, '当天有多次训练，请先选择要添加到的训练');
     if (s) workout();
     const ids = action === 'add' ? [b.id] : b.ids;
     need(Array.isArray(ids) && ids.length > 0 && ids.length <= 50, '请选择 1～50 个动作');
     const week = R.monday(b.date), gear = a.weeks[week]?.gear || a.prefs.owned;
     const additions = [];
-    const seen = new Set((s?.items || []).map(i => i.id));
     for (const id of ids) {
       const m = R.moves.get(id);
       need(m, '动作不存在');
       const meta = c.actions.find(x => x.id === m.sourceId);
       need(meta?.visible !== false, '此动作已下架，请选择其他动作');
-      if (seen.has(m.sourceId)) continue;
       const missing = R.missing({ ...m, gear: meta?.gear || m.gear, alternatives: meta?.alternatives || m.alternatives }, gear);
       need(!missing.length || b.confirmGear, '缺少' + missing.join('、') + '，请确认仍要加入');
-      additions.push(R.item(m.sourceId, meta));
-      seen.add(m.sourceId);
+      const goal = s?.goal || a.weeks[week]?.goal || a.stageGoal;
+      additions.push(R.item(m.sourceId, meta, goal === '增肌' ? 3 : 2));
     }
     const target = s || {
       key: require('node:crypto').randomUUID(),
@@ -158,20 +184,23 @@ function change(a, action, b, c, now = new Date()) {
       budget: a.weeks[week]?.minutes || 30,
       items: [],
       status: '待训练'
+      , goal: a.weeks[week]?.goal || (a.stageGoal === '维持' ? '日常健身' : a.stageGoal) || '日常健身'
     };
     target.items.push(...additions);
     target.manual = true;
     target.timing = R.timing(target.items);
-    a.sessions[b.date] = target;
+    need(!b.sessionKey || s, '所选训练不存在，请重新选择');
+    T.put(a.sessions, target);
     if (!a.weeks[week]) a.weeks[week] = {
       goal: a.stageGoal && a.stageGoal !== '维持' ? a.stageGoal : '日常健身', days: 1, minutes: target.budget, gear: [...gear],
       source: 'manual', version: { actions: c.version.actions, templates: c.version.templates }
     };
-    if (a.weeks[week].source === 'manual') a.weeks[week].days = Object.keys(a.sessions).filter(d => R.monday(d) === week).length;
+    if (a.weeks[week].source === 'manual') a.weeks[week].days = new Set(T.all(a.sessions).filter(s => R.monday(s.date) === week).map(s=>s.date)).size;
   } else if (['edit', 'replace', 'remove', 'reorder'].includes(action)) {
     workout();
     const original = s.items.find((x) => x.key === b.key);
     need(original, '动作已变化，请刷新');
+    const occurrence = s.items.filter(x=>x.id===original.id).indexOf(original);
     const targets = [s];
     if (b.future) {
       need(['edit', 'replace'].includes(action) && s.status === '待训练', '只可调整后续待训练课程');
@@ -181,19 +210,20 @@ function change(a, action, b, c, now = new Date()) {
             x.date > s.date &&
             x.type === s.type &&
             x.status === '待训练' &&
-            x.items.some((i) => i.id === original.id)
+            x.items.filter((i) => i.id === original.id).length > occurrence
         )
       );
     }
     const oldId = original.id;
     for (const target of targets) {
-      const i = target === s ? original : target.items.find((x) => x.id === oldId);
-      const done = target.actual?.[i.key]?.length || 0;
+      const i = target === s ? original : target.items.filter((x) => x.id === oldId)[occurrence];
+      const done = (target.actual?.[i.key] || []).filter(g => !g.extra).length;
       if (action === 'edit') {
         R.integer(b.sets, Math.max(1, done), 100, '组数须为正整数且不能少于已完成组');
         R.integer(b.target, 1, 10000, '次数或秒数须为正整数');
         i.sets = b.sets;
         i.target = b.target;
+        if (b.rest != null) { need(Number.isFinite(b.rest) && b.rest >= 0, '休息秒数须为有效非负数'); i.rest = b.rest; }
       }
       if (action === 'replace') {
         const next = c.actions.find(
@@ -225,7 +255,7 @@ function change(a, action, b, c, now = new Date()) {
         } else target.items.splice(target.items.indexOf(i), 1, replacement);
       }
       if (action === 'remove') {
-        need(!done, '已有完成组，不能移除');
+        need(!target.actual?.[i.key]?.length, '已有完成组，不能移除');
         target.items.splice(target.items.indexOf(i), 1);
       }
       if (action === 'reorder') {
@@ -245,6 +275,7 @@ function change(a, action, b, c, now = new Date()) {
     a.profile.effectiveFrom = today;
     if (a.profile.goal) a.stageGoal = a.profile.goal;
     delete a.pendingEnergy;
+    delete a.energyAssessment;
   } else if (action === 'profileRatios') {
     need(a.profile, '请先保存饮食目标');
     const checked = R.profile({ ...a.profile, estimate: false, goal: undefined, energyModel: undefined, ratios: b.ratios }, c.nutrition);
@@ -252,15 +283,23 @@ function change(a, action, b, c, now = new Date()) {
     if (a.pendingEnergy) a.pendingEnergy.profile.ratios = [...checked.ratios];
   } else if (action === 'measurement') {
     R.day(b.date);
-    need(b.date <= today && b.date >= E.shift(today, -365), '请选择最近一年内的日期');
-    need(Number.isFinite(b.weight) && b.weight >= 25 && b.weight <= 350, '请填写25至350千克之间的体重');
-    if (b.waist != null) need(Number.isFinite(b.waist) && b.waist >= 30 && b.waist <= 250, '腰围须为30至250厘米');
-    (a.measurements ||= {})[b.date] = { date: b.date, weight: b.weight, waist: b.waist ?? null };
+    need(b.date <= today, '不能填写未来日期');
+    R.positive(b.weight, '体重须为有效正数，单位千克');
+    const old = a.measurements?.[b.date];
+    need(!old || old.weight === b.weight || (b.confirmOverwrite === true && b.previousWeight === old.weight), '请核对当天原体重并确认覆盖');
+    (a.measurements ||= {})[b.date] = { date: b.date, weight: b.weight };
+    delete a.energyAssessment;
   } else if (action === 'energyFeedback') {
     R.day(b.date);
-    need(b.date <= today && b.date >= E.shift(today, -13), '请填写最近两周的执行反馈');
+    need(b.date <= today, '不能填写未来日期');
     need(['基本按计划','偏多','偏少','未记录'].includes(b.adherence) && ['正常','明显饥饿或疲劳','训练表现下降'].includes(b.wellbeing), '请选择执行情况与身体感受');
     (a.energyFeedback ||= {})[b.date] = { date: b.date, adherence: b.adherence, wellbeing: b.wellbeing, waterChange: b.waterChange === true };
+    delete a.energyAssessment;
+  } else if (action === 'energyAssessment') {
+    need(a.profile, '请先设置饮食目标');
+    need(['基本按计划','偏多','偏少','未记录'].includes(b.adherence) && ['正常','明显饥饿或疲劳','训练表现下降'].includes(b.wellbeing), '请选择近期整体执行和当前身体感受');
+    need(['无影响','仍有影响','不确定'].includes(b.waterStatus), '请选择当前短期波动情况');
+    a.energyAssessment = { date: today, effectiveFrom: a.profile.effectiveFrom, adherence: b.adherence, wellbeing: b.wellbeing, waterStatus: b.waterStatus };
   } else if (action === 'acceptEnergy') {
     const result = E.progress(a, c.nutrition.goalPolicy, today), r = result.recommendation;
     need(r && r.id === b.id, '调整建议已变化，请刷新后重新确认');
@@ -280,7 +319,15 @@ function change(a, action, b, c, now = new Date()) {
     const meal = a.meals[b.date + '-' + b.index];
     need(meal, '请先保存实际份量的搭配');
     if (b.remove) delete (a.consumedMeals ||= {})[b.date + '-' + b.index];
-    else (a.consumedMeals ||= {})[b.date + '-' + b.index] = { ...structuredClone(meal), confirmedAt: new Date(now).toISOString() };
+    else {
+      let actual = structuredClone(meal);
+      if (b.items) {
+        need(b.version === c.version.foods, '食材已更新，请重新载入后确认实际份量', 409);
+        need(b.items.every(i=>i.locked != null), '请确认每种食材的实际克数');
+        actual = {...R.meal(meal.profileSnapshot || a.profile,b.index,b.items,c.foods,c.risk),date:b.date,foodsVersion:c.version.foods,profileSnapshot:structuredClone(meal.profileSnapshot || a.profile)};
+      }
+      (a.consumedMeals ||= {})[b.date + '-' + b.index] = { ...actual, confirmedAt: new Date(now).toISOString() };
+    }
   } else if (action === 'saveMeal') {
     need(a.profile, '请先保存饮食资料');
     R.day(b.date);

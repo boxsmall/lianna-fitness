@@ -1,6 +1,7 @@
 'use strict';
 const { exercises, gearList } = require('../微信小程序/miniprogram/data/catalog');
 const { randomUUID } = require('node:crypto');
+const T = require('../微信小程序/miniprogram/lib/training');
 const moves = new Map(
   exercises.flatMap((m) => [
     [m.id, m],
@@ -176,6 +177,7 @@ function plan(input, content, prefs, existing = {}) {
     sessions[date] = {
       key: randomUUID(),
       date,
+      goal,
       type,
       items,
       budget: minutes,
@@ -187,7 +189,16 @@ function plan(input, content, prefs, existing = {}) {
   const preserved = [],
     replaced = [];
   for (const date of dateList) {
-    const old = existing[date];
+    const daySessions = T.onDate(existing, date);
+    // Multiple independently arranged sessions are preserved together when a
+    // week is regenerated. Never silently replace a morning/evening workout.
+    if (daySessions.length > 1) {
+      delete sessions[date];
+      daySessions.forEach(s => T.put(sessions, s));
+      preserved.push(date);
+      continue;
+    }
+    const old = existing[date] || daySessions[0];
     if (!old) continue;
     if (old.status !== '待训练' || old.carried) {
       sessions[date] = old;
@@ -238,7 +249,7 @@ function foodReason(f, profile, risk = {}) {
 function usable(f, profile, risk = {}) {
   return !foodReason(f, profile, risk);
 }
-function profile(input, rules) {
+function profile(input, rules, options = {}) {
   const { sex, height, weight, ratios, allergens = [], avoid = [] } = input;
   need(['男', '女'].includes(sex), '请填写性别');
   positive(height, '请填写有效身高');
@@ -261,7 +272,7 @@ function profile(input, rules) {
   const goalMode = input.energyModel === 'goal-v1' || !!input.goal;
   if (input.estimate) {
     need(rules.estimation?.approved, '尚无已审核的能量估算规则，可填写已有目标');
-    integer(input.age, 18, 120, '通用估算仅适用于成年人');
+    need(Number.isInteger(input.age) && input.age >= 18, '通用估算仅适用于成年人');
     // Optional self-description: an unchecked switch is not a medical exclusion.
     const e = rules.estimation;
     need(Object.hasOwn(e.activity, input.activity), '请选择日常活动水平');
@@ -270,9 +281,10 @@ function profile(input, rules) {
     const maintenance = resting * e.activity[input.activity];
     targets.kcal = Math.round(maintenance);
     if (goalMode) {
-      const result = require('./energy').calculate(input, rules, resting, maintenance);
+      const result = require('./energy').calculate(input, rules, resting, maintenance, options.preview === true);
       Object.assign(targets, result.targets);
       energy = result.energy;
+      if (result.reviewRequired) return { sex, height, weight, goal: input.goal, estimate: true, targets: result.targets, energy, reviewRequired: true, reviewReason: result.reviewReason };
     } else {
       // Legacy estimated profiles must not retain stale macros after energy changes.
       for (const k of metrics.slice(1)) delete targets[k];
@@ -287,11 +299,15 @@ function profile(input, rules) {
     );
   }
   macroKeys.forEach((k) => positive(targets[k], '请完整填写三类营养目标'));
-  if (goalMode) require('./energy').checkTargets(targets);
+  let macroDifference = Math.round(targets.carb * 4 + targets.protein * 4 + targets.fat * 9 - targets.kcal);
+  if (goalMode && input.estimate) require('./energy').checkTargets(targets);
+  if (goalMode && !input.estimate && Math.abs(macroDifference) > 10) {
+    if (input.macroResolution === 'align') { targets.kcal += macroDifference; macroDifference = 0; }
+    else need(options.preview || input.macroResolution === 'keep', '营养与总热量存在差额，请选择修正总热量或确认保留原值');
+  }
   if (input.goal) need(require('./energy').goals.includes(input.goal), '阶段目标无效');
   if (input.targetWeight != null) {
-    need(Number.isFinite(input.targetWeight) && input.targetWeight >= 25 && input.targetWeight <= 350, '目标体重须为25至350千克');
-    if (input.estimate) need(input.targetWeight / (height/100)**2 >= 18.5, '目标体重过低，请使用专业目标');
+    positive(input.targetWeight, '目标体重须为有效正数，单位千克');
   }
   return {
     sex,
@@ -300,9 +316,13 @@ function profile(input, rules) {
     allergens: unique(allergens),
     avoid: unique(avoid),
     targets,
+    macroDifference,
+    macroResolution: Math.abs(macroDifference) > 10 && input.macroResolution === 'keep' ? 'keep' : null,
     ratios,
     estimate: !!input.estimate,
     age: input.age,
+    ageAcknowledged: input.ageAcknowledged === true,
+    goalPercent: energy?.goalPercent,
     activity: input.activity,
     ...(goalMode ? { goal: input.goal, targetWeight: input.targetWeight ?? null, energyModel: 'goal-v1', resistance: input.resistance === true,
       generalAdult: input.generalAdult === true, macroMode: input.estimate ? 'auto' : (macroKeys.every(k=>input.targets?.[k]==null) ? 'auto' : 'manual'), energy: energy || null } : {})
@@ -355,6 +375,7 @@ function meal(profile, index, selected, foods, risk = {}) {
 }
 module.exports = {
   need,
+  positive,
   integer,
   day,
   shift,

@@ -3,12 +3,14 @@ const storage = require('../../lib/storage');
 const api = require('../../lib/service');
 const nav = require('../../lib/navigation');
 const { byId } = require('../../lib/catalog');
+const T = require('../../lib/training');
+const chooseOption = require('../../lib/choose-option');
 
 Page({
-  data: { selecting: false, selectedIds: [], selectedCount: 0, busy: false, error: '' },
+  data: { selecting: false, selectedIds: [], selectedCount: 0, source:'all', busy: false, error: '' },
   onLoad(options = {}) {
     this.limits = {};
-    this.setData({ selecting: options.from === 'plan', date: options.date || api.localDate() });
+    this.setData({ selecting: options.from === 'plan', date: options.date || api.localDate(), sessionKey: options.sessionKey || '' });
     this.planGear = [...(api.state()?.weeks[api.monday(this.data.date)]?.gear || storage.read().owned)];
   },
   onShow() {
@@ -17,16 +19,18 @@ Page({
   refresh() {
     const filters = getApp().globalData.filters;
     const prefs = storage.read();
-    const view = pickView(filters, this.data.selecting ? { ...prefs, active: this.planGear } : prefs, this.limits);
-    const existing = new Set((api.state()?.sessions[this.data.date]?.items || []).map(i => i.id));
+    const view = pickView({...filters,favoritesOnly:this.data.source==='favorites'}, this.data.selecting ? { ...prefs, active: this.planGear } : prefs, this.limits);
+    const existing = new Set((T.select(api.state()?.sessions,this.data.date,this.data.sessionKey)?.items || []).map(i => i.id));
     const selected = new Set(this.data.selectedIds);
     view.sections.forEach(group => group.rows.forEach(row => {
+      row.part = byId.get(row.id)?.part || '';
       row.selected = selected.has(row.id);
       row.already = existing.has(byId.get(row.id)?.sourceId || row.id);
     }));
     filters.category = view.category;
-    this.setData({ ...view, selectedCount: selected.size });
+    this.setData({ ...view, selectedCount: selected.size, existingCount: (T.select(api.state()?.sessions,this.data.date,this.data.sessionKey)?.items || []).length });
   },
+  source(e) {this.setData({source:e.currentTarget.dataset.source});this.limits={};this.refresh();},
   toggleMove(e) {
     const id = e.detail.id, selected = new Set(this.data.selectedIds);
     if (!selected.delete(id)) selected.add(id);
@@ -42,10 +46,23 @@ Page({
         return m.gear.filter(g => !gear.includes(g) && !(m.alternatives?.[g] || []).some(x => gear.includes(x)));
       }))];
       if (missing.length && !(await api.confirm('所需器械不足', '缺少' + missing.join('、') + '，仍加入当天训练？'))) return;
-      await api.mutate('addMany', { date: this.data.date, ids: this.data.selectedIds, confirmGear: !!missing.length });
+      const sessions = T.onDate(api.state()?.sessions,this.data.date);
+      let sessionKey = this.data.sessionKey;
+      if (!sessionKey && sessions.length > 1) {
+        const choices = sessions.filter(s=>s.status!=='已完成');
+        const index = await chooseOption([...choices.map(s=>'训练 '+(sessions.indexOf(s)+1)+' · '+s.type+' · '+s.status),'新建另一节训练']);
+        if (index < 0) return;
+        sessionKey = choices[index]?.key || '';
+        if (index === choices.length) sessionKey = (await api.mutate('createSession',{date:this.data.date})).lastCreatedSession;
+      }
+      if (!sessionKey && sessions.length === 1) {
+        sessionKey = sessions[0].status==='已完成' ? (await api.mutate('createSession',{date:this.data.date})).lastCreatedSession : sessions[0].key;
+      }
+      const updated = await api.mutate('addMany', { date: this.data.date, sessionKey:sessionKey || undefined, ids: this.data.selectedIds, confirmGear: !!missing.length });
+      sessionKey ||= T.select(updated?.sessions,this.data.date)?.key || '';
       this.setData({ selectedIds: [], selectedCount: 0 });
       wx.showToast({ title: '已加入当天训练', icon: 'none' });
-      nav.open('week', { date: this.data.date, mode: 'session' });
+      nav.open('week', { date: this.data.date, sessionKey, mode: 'session' });
     });
   },
   muscle(e) {

@@ -1,16 +1,17 @@
 <view wx:if="{{move}}" class="screen with-dock">
   <view class="header"><text class="title">{{move.name}}</text><image class="brand" src="/assets/brand.svg" mode="aspectFit"/></view>
+  <view class="subtitle">{{move.part}} · {{move.muscle}}</view>
   <view wx:if="{{move.hidden}}" class="media-note">动作已下架，收藏与历史记录保留。请在动作库选择替代动作。</view>
   <view class="stage">
     <image wx:if="{{paused || status !== 'ready'}}" class="visual" src="{{cover}}" mode="aspectFit" webp/>
     <image wx:if="{{animation && !paused}}" class="visual" src="{{animation}}" mode="aspectFit" webp bindload="loaded" binderror="failed" aria-label="{{move.name}}循环演示"/>
+    <button class="stage-control" bindtap="pause"><image class="icon small" src="/assets/tdesign/play-circle-muted.svg"/>{{paused?'播放':'暂停'}}</button>
   </view>
   <view wx:if="{{status === 'loading'}}" class="media-note muted">动图加载中…</view>
   <view wx:if="{{status === 'error'}}" class="media-note between"><text class="muted">动图加载失败</text><button class="link" bindtap="loadAnimation">重新加载</button></view>
-<view class="between"><button class="link" bindtap="pause">{{paused?'播放演示':'暂停演示'}}</button><text class="muted">循环动作演示</text></view><view class="between"><text class="tag">{{move.part}} · {{move.muscle}}</text><button class="link" bindtap="favorite">{{favorite?'已收藏':'收藏动作'}}</button></view><view class="muted">{{gear}}</view>  <view class="group">
-    <view class="heading">动作说明</view>
-    <view wx:for="{{move.steps}}" wx:key="order" class="step"><text class="step-number">{{item.order}}</text><text>{{item.text}}</text></view>
+<view class="between detail-meta"><text class="tag">{{gear}}</text><button class="link" bindtap="favorite"><image class="icon small" src="/assets/tdesign/heart-blue.svg"/>{{favorite?'已收藏':'收藏动作'}}</button></view>  <view class="group">
+    <view class="heading">把动作做对</view>
+    <view wx:for="{{move.steps}}" wx:key="order" class="step"><text class="step-number">{{item.order < 10?'0'+item.order:item.order}}</text><text>{{item.text}}</text></view>
   </view>
-<view wx:if="{{hint}}" class="fine">{{hint}}</view><button wx:if="{{!move.hidden}}" class="primary" disabled="{{already}}" bindtap="addToPlan">{{selecting?(already?'已在当天训练':(selected?'取消选择':'选入当天训练')):'加入今天训练'}}</button></view>
+<view wx:if="{{hint}}" class="fine">{{hint}}</view><view class="dock"><button wx:if="{{!move.hidden}}" class="primary" bindtap="addToPlan">{{selecting?(selected?'取消选择':(already?'再次选入训练':'选入当天训练')):'加入今天训练'}}</button></view></view>
 <view wx:else class="empty">未找到这个动作。<view><button class="link" bindtap="pick">去挑动作</button></view></view>
-<main-nav wx:if="{{!selecting}}" active="week"/>

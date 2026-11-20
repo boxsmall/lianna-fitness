@@ -1,13 +1,1 @@
-<view class="row">
-  <view class="item" bindtap="open" aria-role="button" aria-label="{{move.name}}，查看动作">
-    <view class="preview">
-      <image wx:if="{{!broken}}" src="{{move.cover}}" lazy-load webp mode="aspectFit" binderror="coverFailed"/>
-      <text wx:else>暂无封面</text>
-    </view>
-    <view class="copy">
-      <view class="name">{{move.name}}</view>
-      <view class="meta">{{move.gear}}</view>
-      <view class="meta hint" wx:if="{{move.favoriteHint}}">{{move.favoriteHint}}</view>
-    </view>
-  </view>
-  <button wx:if="{{selecting}}" class="show {{move.selected?'selected':''}}" disabled="{{move.already}}" bindtap="select">{{move.already?'已在计划':(move.selected?'已选 ✓':'添加')}}</button><button wx:else class="show" bindtap="open">查看</button></view>
+<view class="row"><view class="item" bindtap="open" aria-role="button" aria-label="{{move.name}}，查看动作"><view class="preview"><image wx:if="{{!broken}}" src="{{move.cover}}" lazy-load webp mode="aspectFit" binderror="coverFailed"/><text wx:else>暂无封面</text></view><view class="copy"><view class="name">{{move.name}}</view><view class="meta">{{move.part?move.part+' · ':''}}{{move.gear}}</view><view class="meta" wx:if="{{move.already}}">已加入，可再添加</view></view></view><button wx:if="{{selecting}}" class="select-move {{move.selected?'selected':''}}" bindtap="select" aria-label="{{move.selected?'取消选择':'添加'}}{{move.name}}"><image src="/assets/tdesign/{{move.selected?'check-white':'add-blue'}}.svg"/></button><button wx:else class="show" bindtap="open">查看</button></view>

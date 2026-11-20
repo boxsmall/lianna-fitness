@@ -56,7 +56,10 @@ test('调课、交换、跨周、剩余组和完成记录', () => {
     cmd = (name, b) => change(a, name, b, c);
   cmd('savePlan', { input: inputs, version: c.version });
   cmd('move', { date: '2026-11-18', to: '2026-11-19' });
-  assert.throws(() => cmd('move', { date: '2026-11-19', to: '2026-11-20' }), /交换/);
+  const oldKey=a.sessions['2026-11-19'].key;
+  cmd('move',{date:'2026-11-19',to:'2026-11-20',swap:true});
+  assert.equal(a.sessions['2026-11-20'].key,oldKey);
+  cmd('move',{date:'2026-11-20',to:'2026-11-19',swap:true});
   const d = '2026-11-19',
     s = a.sessions[d],
     i = s.items[1];

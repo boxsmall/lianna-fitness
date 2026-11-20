@@ -3,16 +3,38 @@ const api = require('../../lib/service'),
 const { byId, media, equipmentCatalog } = require('../../lib/catalog');
 const nav = require('../../lib/navigation');
 const display = require('../../lib/presentation');
+const T = require('../../lib/training'), workoutTypes = require('../../lib/workout-types');
+const chooseOption = require('../../lib/choose-option');
 const names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 Page({
   follow: nav.follow,
   pauseOnExit() {
-    const date = this.data.date, s = api.state()?.sessions?.[date];
-    if (s?.status === '训练中' && s.timer?.running) api.mutate('pause', { date }).catch(()=>{});
+    const date = this.data.date, s = T.select(api.state()?.sessions, date, this.data.sessionKey);
+    if (s?.status === '训练中' && s.timer?.running) api.mutate('pause', { date, sessionKey: s.key }).catch(()=>{});
   },
   onHide() { if (this.heartbeatTimer) clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; this.pauseOnExit(); },
   onUnload() { this.onHide(); },
-  workoutType(e) { return api.run(this, async()=> { await this.commit('workoutType', { type: ['', 'resistance', 'bodyweight'][Number(e.detail.value)] }); }); },
+  workoutType(e) { return api.run(this, async()=> { await this.commit('workoutType', { type: workoutTypes.keys[Number(e.detail.value)] }); }); },
+  selectSession(e) { this.pauseOnExit(); this.setData({sessionKey:e.currentTarget.dataset.key,sessionName:null}); this.draw(); },
+  newSession() { return api.run(this, async()=> {
+    if (!(await api.login())) return;
+    this.pauseOnExit();
+    const a = await api.mutate('createSession', {date:this.data.date});
+    this.setData({ sessionKey:a.lastCreatedSession, sessionName:null, mode:'session', preview:null }); this.draw();
+  }); },
+  sessionGoal(e) { return api.run(this,async()=>this.commit('sessionGoal',{goal:this.data.goals[Number(e.detail.value)]})); },
+  energyField(e) { this.setData({ [e.currentTarget.dataset.k]: e.detail.value }); },
+  nameField(e) {this.setData({sessionName:e.detail.value});},
+  toggleSessionSettings() {this.setData({sessionSettings:!this.data.sessionSettings});},
+  closeSave() {this.setData({saveSheet:false});},
+  saveTraining() {return api.run(this,async()=> {
+    const name=(this.data.sessionName || '').trim();
+    if(!name)throw Error('请填写训练名称');
+    if(name!==(this.data.session.name || '今天的训练'))await this.commit('sessionName',{name});
+    this.setData({saveSheet:true});
+  });},
+  startSaved() {this.setData({saveSheet:false});return this.train({currentTarget:{dataset:{action:'start'}}});},
+  newToday() {this.setData({date:api.localDate(),sessionKey:'',start:api.monday(api.localDate())});return this.newSession();},
   mode(e) {
     this.pauseOnExit();
     if (e.currentTarget.dataset.mode === 'create') {
@@ -51,7 +73,7 @@ Page({
   },
   dateDialog(e) {
     const date = e.currentTarget.dataset.date;
-    this.setData({ date });
+    this.setData({ date, sessionKey: e.currentTarget.dataset.key || '' });
     this.draw();
     this.setData({ moveDate: date, destination: date });
   },
@@ -66,7 +88,8 @@ Page({
     this.closeDate();
   },
   data: {
-    workoutTypes: ['不估算 / 混合训练', '常规多动作抗阻训练', '常规自重训练'],
+    workoutTypes: workoutTypes.labels,
+    sessionKey: '', energyAge: '', energyWeight: '',
     mode: 'week',
     advanced: false,
     goals: ['增肌', '减脂', '日常健身'],
@@ -98,15 +121,16 @@ Page({
       start: api.monday(opts.date || api.localDate()),
       date: opts.date || api.localDate(),
       addId: opts.add || '',
+      sessionKey: opts.sessionKey || '',
       gear: storage.read().owned
     });
   },
   async onShow() {
     if (typeof setInterval === 'function' && !this.heartbeatTimer) this.heartbeatTimer = setInterval(async()=> {
-      const date = this.data.date, s = api.state()?.sessions?.[date];
+      const date = this.data.date, s = T.select(api.state()?.sessions, date, this.data.sessionKey);
       if (this.data.busy || this.beating || this.data.mode !== 'session' || !s?.timer?.running || s.status !== '训练中') return;
       this.beating = true;
-      try { const a = await api.mutate('heartbeat', { date }); if (this.data.date === date) this.setData({ session: a.sessions[date], timerSeconds: Math.round(a.sessions[date].timer.seconds) }); }
+      try { const a = await api.mutate('heartbeat', { date, sessionKey:s.key }); const next=T.select(a.sessions,date,s.key); if (this.data.date === date && this.data.sessionKey===s.key && next) this.setData({ session: next, timerSeconds: Math.round(next.timer.seconds) }); }
       catch(e) { this.setData({ error: '计时同步失败，请恢复网络后确认继续。' }); }
       finally { this.beating = false; }
     }, 30000);
@@ -118,6 +142,8 @@ Page({
         mode: intent.add ? 'session' : (intent.mode || 'week'),
         start: api.monday(date),
         date,
+        sessionKey: intent.sessionKey || '',
+        sessionName:null,
         addId: intent.add || '',
         error: '',
         edit: null,
@@ -137,33 +163,36 @@ Page({
     if (this.useOwnedGear) this.setData({ gear: [...storage.read().owned] });
     if (api.state()?.stageGoal && !this.goalEdited) this.setData({ goal: api.state().stageGoal === '维持' ? '日常健身' : api.state().stageGoal });
     this.draw();
-    if (intent?.add) await this.add();
+    if (intent?.add && T.onDate(api.state()?.sessions,this.data.date).length <= 1) await this.add();
   },
   draw() {
+    this.getTabBar?.()?.setData({selected:'week',hidden:this.data.mode==='session'});
     const a = api.state();
     const { start, date, preview } = this.data;
     const sessions = preview ? preview.sessions : a?.sessions || {};
-    const s = sessions[date];
+    const daySessions = T.onDate(sessions,date);
+    const s = T.select(sessions,date,this.data.sessionKey) || daySessions[0];
     const rows = Array.from({ length: 7 }, (_, i) => {
       const d = api.shift(start, i),
-        x = sessions[d];
+        list = T.onDate(sessions,d), x = list[0];
       return {
         date: d,
         label: display.shortDate(d),
         weekday: names[i],
-        type: x?.type || '休息',
+        type: list.length > 1 ? list.length+' 次训练' : x?.type || '休息',
         active: d === date,
         scheduled: !!x,
-        status: x?.status || '',
-        budget: x?.budget || 0,
-        count: x?.items.filter((m) => m.pattern !== '热身').length || 0,
+        status: list.length > 1 ? '多次训练' : x?.status || '',
+        budget: list.reduce((sum,v)=>sum+v.budget,0),
+        count: list.reduce((sum,v)=>sum+v.items.filter(m=>m.pattern!=='热身').length,0),
         summary:
-          x?.items
+          list.flatMap(v=>v.items)
             .filter((m) => m.pattern !== '热身')
             .map((m) => m.name)
             .join(' · ') || ''
       };
     });
+    let mainOrdinal=0;
     const items = (s?.items || []).map((m) => {
       const actual = s.actual?.[m.key] || [];
       const previous = (a?.history || [])
@@ -173,6 +202,9 @@ Page({
         .find((v) => v.id === m.id);
       return {
         ...m,
+        ordinal:m.pattern==='热身'?'':String(++mainOrdinal).padStart(2,'0'),
+        part:byId.get(m.id)?.part || '',
+        gear:(byId.get(m.id)?.gear || []).join(' / ') || '徒手',
         cover: byId.has(m.id) ? media(byId.get(m.id), 'covers') : '',
         done: actual.length,
         previous: previous
@@ -180,7 +212,7 @@ Page({
             previous.unit +
             (previous.weight != null ? ' · ' + previous.weight + ' kg' : '')
           : '',
-        actual: actual.map((g) => g.value + g.unit).join('、')
+        actual: actual.map((g) => (g.extra ? '加练 ' : '') + g.value + g.unit).join('、')
       };
     });
     const time = s?.timing || {};
@@ -193,6 +225,17 @@ Page({
       gearLabel: gear.join('、') || '徒手',
       gearImage: gearImage ? '/assets/' + gearImage : '',
       rows,
+      courses:rows.flatMap(row=>T.onDate(sessions,row.date).map(v=>({
+        key:v.key,date:row.date,label:row.label,weekday:row.weekday,status:v.status,
+        title:v.name || (v.type==='自行编排'?'今天的训练':v.type),
+        minutes:Math.ceil((v.timing?.total||0)/60),count:v.items.filter(i=>i.pattern!=='热身').length,
+        summary:v.items.filter(i=>i.pattern!=='热身').map(i=>i.name).join(' · ')
+      }))),
+      sessionName:s?.key===this.data.sessionKey && this.data.sessionName!=null ? this.data.sessionName : s?.name || '今天的训练',
+      sessionSets:items.filter(m=>m.pattern!=='热身').reduce((n,m)=>n+m.sets,0),
+      sessionCount:items.filter(m=>m.pattern!=='热身').length,
+      sessionHasItems:items.length>0,
+      sessionDateLabel:display.shortDate(date),
       scheduled: rows.filter((r) => r.scheduled),
       restDays: rows
         .filter((r) => !r.scheduled)
@@ -204,13 +247,18 @@ Page({
       warm: items.filter((m) => m.pattern === '热身'),
       mainItems: items.filter((m) => m.pattern !== '热身'),
       session: s || null,
+      sessionKey: s?.key || '',
+      daySessions: daySessions.map((v,i)=>({key:v.key,label:'训练 '+(i+1)+' · '+(v.goal || a?.weeks[start]?.goal || '日常健身')+' · '+v.status})),
+      workoutLabel: workoutTypes.types[s?.workoutType]?.label || '不估算 / 混合训练',
+      energyAge: a?.profile?.age || this.data.energyAge || '',
+      energyWeight: Object.values(a?.measurements || {}).sort((x,y)=>y.date.localeCompare(x.date))[0]?.weight || a?.profile?.weight || this.data.energyWeight || '',
       timerSeconds: Math.round(s?.timer?.seconds || 0),
       items,
       totalMinutes: Math.ceil((time.total || 0) / 60),
       hasWeek: !!a?.weeks[start],
       manualDays: this.data.days > 4,
       addName: byId.get(this.data.addId)?.name || '',
-      edit: null
+      edit: !preview && s?.key===this.data.sessionKey && s?.items.some(i=>i.key===this.data.edit?.key) ? this.data.edit : null
     });
   },
   field(e) {
@@ -284,16 +332,9 @@ Page({
         p = await api.request('preview/plan', input);
       const describe = (p) =>
         JSON.stringify(
-          p.dates.map((day) => {
-            const s = p.sessions[day];
-            return s
-              ? [
-                  day,
-                  s.type,
-                  s.items.map((i) => [i.id, i.sets, i.target, i.rest])
-                ]
-              : [day];
-          })
+          p.dates.map(day => [day, ...T.onDate(p.sessions,day).map(s=>[
+            s.type, s.goal, s.items.map(i=>[i.id,i.sets,i.target,i.rest])
+          ])])
         );
       if (!this.data.preview || describe(this.data.preview) !== describe(p)) {
         this.setData({ preview: p });
@@ -324,19 +365,19 @@ Page({
   week(e) {
     this.pauseOnExit();
     const start = api.shift(this.data.start, Number(e.currentTarget.dataset.n));
-    this.setData({ start, date: start, preview: null });
+    this.setData({ start, date: start, sessionKey:'', preview: null });
     this.draw();
   },
   select(e) {
     this.pauseOnExit();
-    this.setData({ date: e.currentTarget.dataset.date, mode: 'session' });
+    this.setData({ date: e.currentTarget.dataset.date, sessionKey:e.currentTarget.dataset.key || '', sessionName:null, mode: 'session' });
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
     this.draw();
   },
   trainingDate(e) {
     this.pauseOnExit();
     const date = e.detail.value;
-    this.setData({ date, start: api.monday(date), preview: null });
+    this.setData({ date, sessionKey:'', sessionName:null, start: api.monday(date), preview: null });
     this.draw();
   },
   demo(e) {
@@ -345,18 +386,27 @@ Page({
     });
   },
   async commit(action, data) {
-    await api.mutate(action, { date: this.data.date, ...data });
+    await api.mutate(action, { date: this.data.date, sessionKey:this.data.sessionKey || undefined, ...data });
+    this.setData({edit:null});
     this.draw();
   },
   train(e) {
-    api.run(this, async () => {
+    return api.run(this, async () => {
       const action = e.currentTarget.dataset.action;
       if (
         action === 'finish' &&
         !(await api.confirm('结束训练', '按已实际记录的组数完成本节训练？'))
       )
         return;
-      await this.commit(action, {});
+      const body = {};
+      if (action === 'start' && this.data.session?.workoutType) {
+        body.age = Number(this.data.energyAge); body.weight = Number(this.data.energyWeight);
+        if (body.age >= 65) {
+          if (!(await api.confirm('确认估算局限','65岁及以上的身体组成与活动差异较大，活动消耗仅作粗略参考，不增加饮食额度。确认继续？'))) return;
+          body.ageAcknowledged = true;
+        }
+      }
+      await this.commit(action, body);
     });
   },
   move(e) {
@@ -365,25 +415,32 @@ Page({
         old = this.data.date,
         a = api.state();
       if (to === old) return;
-      const other = a.sessions[to];
+      const others = T.onDate(a.sessions,to), other = others[0];
       const within = api.monday(to) === api.monday(old);
+      let swapSessionKey;
+      if (other && within) {
+        const choices = others.filter(s=>s.status==='待训练');
+        const pick = await chooseOption(['作为另一节独立训练',...choices.map(s=>'与目标日训练 '+(others.indexOf(s)+1)+' 交换')]);
+        if (pick < 0) return;
+        if (pick > 0) swapSessionKey=choices[pick-1].key;
+      }
       const near = [api.shift(to, -1), api.shift(to, 1)].filter(
         (d) =>
           d !== old &&
-          a.sessions[d]?.items.some((i) =>
+          T.onDate(a.sessions,d).some(v=>v.items.some((i) =>
             this.data.session.items.some(
               (j) => byId.get(i.id)?.part === byId.get(j.id)?.part
             )
-          )
+          ))
       );
       const w1 = api.monday(old),
         w2 = api.monday(to),
         count = (w) =>
-          Object.keys(a.sessions).filter((d) => api.monday(d) === w).length;
+          new Set(T.all(a.sessions).filter((s) => api.monday(s.date) === w).map(s=>s.date)).size;
       const totals =
         w1 !== w2 && !other
           ? '。调整后原周 ' +
-            (count(w1) - 1) +
+            (count(w1) - (T.onDate(a.sessions,old).length===1 ? 1 : 0)) +
             ' 天，下周 ' +
             (count(w2) + 1) +
             ' 天'
@@ -395,13 +452,13 @@ Page({
             ' → ' +
             to +
             totals +
-            (other && within ? '，与目标日交换' : '') +
+            (other && within ? (swapSessionKey ? '，与选定训练交换' : '，作为目标日另一节独立训练') : '') +
             (near.length ? '。相邻训练日有重复部位：' + near.join('、') : '') +
             '？'
         ))
       )
         return;
-      await this.commit('move', { to, swap: !!other && within });
+      await this.commit('move', { to, swap: !!swapSessionKey, swapSessionKey });
       this.setData({ start: api.monday(to), date: to });
       this.draw();
     });
@@ -424,26 +481,28 @@ Page({
   async scope(b) {
     const m = this.data.edit;
     if (!m.future) return true;
+    const occurrence = this.data.session.items.filter(i=>i.id===m.id).findIndex(i=>i.key===m.key);
     const dates = Object.values(api.state().sessions)
       .filter(
         (x) =>
           x.date > this.data.date &&
           x.status === '待训练' &&
           x.type === this.data.session.type &&
-          x.items.some((i) => i.id === m.id)
+          x.items.filter((i) => i.id === m.id).length > occurrence
       )
       .map((x) => x.date);
     return api.confirm('确认影响日期', [this.data.date, ...dates].join('、'));
   },
   apply(e) {
     api.run(this, async () => {
-      const action = e.currentTarget.dataset.action,
+        const requested = e.currentTarget.dataset.action, action = requested === 'recordExtra' ? 'record' : requested,
         m = this.data.edit;
       const b = { key: m.key };
       if (action === 'edit') {
         Object.assign(b, {
           sets: Number(m.sets),
           target: Number(m.target),
+          rest: Number(m.rest),
           future: m.future
         });
         if (!(await this.scope(b))) return;
@@ -452,6 +511,7 @@ Page({
         Object.assign(b, {
           value: Number(m.value),
           weight: m.weight === '' ? null : Number(m.weight)
+          , extra: requested === 'recordExtra'
         });
       if (action === 'remove' && !(await api.confirm('移除动作', m.name)))
         return;
@@ -497,6 +557,10 @@ Page({
         ))
       )
         return;
+      if (this.data.session?.status === '已完成') {
+        const a = await api.mutate('createSession', {date:this.data.date});
+        this.setData({sessionKey:a.lastCreatedSession});
+      }
       await this.commit('add', { id, confirmGear: !!missing.length });
       this.setData({ addId: '' });
       this.draw();
@@ -504,6 +568,6 @@ Page({
     });
   },
   browse() {
-    nav.open('pick', { from: 'plan', date: this.data.date });
+    nav.open('pick', { from: 'plan', date: this.data.date, sessionKey:this.data.sessionKey || '' });
   }
 });

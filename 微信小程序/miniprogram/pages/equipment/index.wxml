@@ -1,8 +1,8 @@
 <view class="screen with-dock"><view class="header"><text class="title">我的器械</text><image class="brand" src="/assets/brand.svg" mode="aspectFit"/></view><view class="subtitle">选一次，之后沿用这份清单。</view>
-<view class="tiles common">      <button wx:for="{{common}}" wx:for-item="gear" wx:key="name" class="tile {{gear.checked ? 'on' : ''}}"
+<view class="tiles common">      <button wx:for="{{common}}" wx:for-item="gear" wx:key="name" class="tile {{gear.checked ? 'on' : ''}} {{(gear.disabled)?'is-disabled':''}}"
         disabled="{{gear.disabled}}" data-name="{{gear.name}}" bindtap="toggle">
         <image src="{{gear.img}}" mode="aspectFit" lazy-load/>
-        <text class="check">{{gear.checked ? '✓' : ''}}</text>
+        <image wx:if="{{gear.checked}}" class="check" src="/assets/tdesign/check-blue.svg"/>
         <text class="tile-name">{{gear.name}}</text><text wx:if="{{gear.note}}" class="note">{{gear.note}}</text>
       </button>
 </view><button class="primary" bindtap="save">{{mode==='owned'?'保存器械':'保存选择'}}</button><button class="link wide" bindtap="moreGear">{{expanded?'收起更多器械':'更多器械与筛选'}}</button><block wx:if="{{expanded}}">  <view class="modes">
@@ -20,10 +20,10 @@
   <view wx:for="{{groups}}" wx:key="name" wx:for-item="group" class="group">
     <view class="subheading">{{group.name}}</view>
     <view class="tiles">
-      <button wx:for="{{group.items}}" wx:for-item="gear" wx:key="name" class="tile {{gear.checked ? 'on' : ''}}"
+      <button wx:for="{{group.items}}" wx:for-item="gear" wx:key="name" class="tile {{gear.checked ? 'on' : ''}} {{(gear.disabled)?'is-disabled':''}}"
         disabled="{{gear.disabled}}" data-name="{{gear.name}}" bindtap="toggle">
         <image src="{{gear.img}}" mode="aspectFit" lazy-load/>
-        <text class="check">{{gear.checked ? '✓' : ''}}</text>
+        <image wx:if="{{gear.checked}}" class="check" src="/assets/tdesign/check-blue.svg"/>
         <text class="tile-name">{{gear.name}}</text><text wx:if="{{gear.note}}" class="note">{{gear.note}}</text>
       </button>
     </view>

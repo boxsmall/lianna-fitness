@@ -11,7 +11,8 @@ test('当天批量选动作无需周计划，继续追加不替换且请求幂�
  assert.deepEqual(a.weeks['2026-11-16'].gear,['哑铃']);
  const original=a.sessions[date].items[0].key,course=a.sessions[date].key;
  a=await mutate('addMany',{date,ids:['0334','0662','0662']});
- assert.deepEqual(a.sessions[date].items.map(i=>i.id),['0334','0293','0662']);
+ assert.deepEqual(a.sessions[date].items.map(i=>i.id),['0334','0293','0334','0662','0662']);
+ assert.equal(new Set(a.sessions[date].items.map(i=>i.key)).size,5);
  assert.equal(a.sessions[date].items[0].key,original);assert.equal(a.sessions[date].key,course);
  const before=structuredClone(a);
  await mutate('addMany',{date,ids:['1760','nonexistent']},400);
@@ -23,7 +24,7 @@ test('当天批量选动作无需周计划，继续追加不替换且请求幂�
  await mutate('start',{date});
  await mutate('record',{date,key:original,value:10,weight:3});
  a=await mutate('add',{date,id:'1760'});
- assert.equal(a.sessions[date].actual[original][0].weight,3);assert.equal(a.sessions[date].snapshot.length,3);
+ assert.equal(a.sessions[date].actual[original][0].weight,3);assert.equal(a.sessions[date].snapshot.length,5);
  const cmd={action:'addMany',body:{date,ids:['0662']},rev:a.rev,requestId:'quick-training-repeat'};
  a=await api('change',cmd,'person1');const again=await api('change',cmd,'person1');assert.deepEqual(again,a);
  await mutate('finish',{date});await mutate('addMany',{date,ids:['0334']},400);

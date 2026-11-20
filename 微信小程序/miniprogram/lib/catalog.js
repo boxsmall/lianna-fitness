@@ -126,7 +126,7 @@ function pickView(filters, saved, limits) {
     (move) => !move.hidden && gearMatches(move, active)
   );
   const query = (filters.query || '').trim().toLowerCase();
-  const named = (move) => move.name.toLowerCase().includes(query);
+  const named = (move) => (!filters.favoritesOnly || favorites.has(move.id)) && [move.name,move.part,move.muscle].join(' ').toLowerCase().includes(query);
   const matches = gearResult.filter(
     (move) => named(move) && partMatches(move, selected)
   );
@@ -146,11 +146,11 @@ function pickView(filters, saved, limits) {
     : '全部';
   const byGroup = new Map();
   if (category === '全部') {
-    if (warm.length) byGroup.set('热身', warm);
     for (const move of matches) {
       if (!byGroup.has(move.muscle)) byGroup.set(move.muscle, []);
       byGroup.get(move.muscle).push(move);
     }
+    if (warm.length) byGroup.set('热身', warm);
   } else {
     byGroup.set(
       category,

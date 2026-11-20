@@ -1,0 +1,24 @@
+/* 练哪：TDesign Miniprogram 1.18.0 主题交接。此文件为组件主题覆盖，不是完整应用。 */
+page {
+  --td-brand-color: #2448d8;
+  --td-brand-color-active: #183abf;
+  --td-brand-color-disabled: #acb9eb;
+  --td-brand-color-light: #e5eaff;
+  --td-brand-color-light-active: #d8e1ff;
+  --td-text-color-primary: #202330;
+  --td-text-color-secondary: #626774;
+  --td-text-color-placeholder: #7b8395;
+  --td-text-color-brand: #2448d8;
+  --td-text-color-link: #2448d8;
+  --td-bg-color-page: #f8f9ff;
+  --td-bg-color-container: #ffffff;
+  --td-bg-color-secondarycontainer: #eff1fa;
+  --td-border-level-1-color: #e3e5ed;
+  --td-border-level-2-color: #acb3c5;
+  --lianna-primary-container: #dfe5ff;
+  --lianna-on-primary-container: #14276a;
+  --lianna-success-container: #dcefe4;
+  --lianna-on-success-container: #225940;
+  background: var(--td-bg-color-page);
+  color: var(--td-text-color-primary);
+}

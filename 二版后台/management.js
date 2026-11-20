@@ -485,7 +485,7 @@ function endpoint(s, actor, action, b, req) {
     }
     return {
       profile,
-      ...(b.sensitive ? { measurements: a.measurements || {}, energyHistory: a.energyHistory || [], pendingEnergy: a.pendingEnergy || null, energyFeedback: a.energyFeedback || {} } : {}),
+      ...(b.sensitive ? { measurements: Object.fromEntries(Object.entries(a.measurements || {}).map(([d,r])=>[d,{date:r.date,weight:r.weight}])), energyHistory: a.energyHistory || [], pendingEnergy: a.pendingEnergy || null, energyFeedback: a.energyFeedback || {}, energyAssessment: a.energyAssessment || null } : {}),
       events: events.map((e) => ({
         id: e.id,
         at: e.at,
@@ -764,7 +764,7 @@ function endpoint(s, actor, action, b, req) {
 function cleanSnapshot(v, sensitive) {
   if (!sensitive) {
     v.profile = v.profile ? { redacted: true } : null;
-    for (const k of ['measurements', 'energyHistory', 'pendingEnergy', 'energyFeedback', 'consumedMeals']) delete v[k];
+    for (const k of ['measurements', 'energyHistory', 'pendingEnergy', 'energyFeedback', 'energyAssessment', 'consumedMeals']) delete v[k];
     for (const s of [...Object.values(v.sessions || {}), ...(v.history || [])]) {
       delete s.energyPerson;
       delete s.energyEstimate;

@@ -1,3 +1,6 @@
 .segment .link{margin-right:14rpx}
 .segment .vrow{width:100%}
 .picks .field{flex:1;min-width:150rpx}
+.diet-screen .vcard{background:#f0f1fa;border:0;border-radius:20px;padding:20px}.diet-screen .metric-grid{margin-bottom:8px}.diet-screen .metric-grid .muted{font-size:11px}.diet-screen .fields{margin-top:8px}.diet-screen .primary{margin-top:24px}.diet-screen .sheet .primary{margin-top:16px}.diet-screen switch{transform:scale(.8);transform-origin:right center;vertical-align:middle}.diet-screen .picks{display:flex;gap:10px}.diet-screen .picks .field{width:0;flex:1;min-width:0}.diet-screen .field{font-size:14px}.recipe-card .fine{margin-bottom:0}
+
+.switch-row{display:flex;align-items:center;gap:12px;margin:14px 0}.switch-row>text{flex:1;min-width:0;font-size:13px}.switch-row switch{flex-shrink:0}

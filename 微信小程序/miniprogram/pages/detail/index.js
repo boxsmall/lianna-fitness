@@ -49,7 +49,6 @@ Page({
   addToPlan() {
     if(this.move.hidden) return wx.showToast({title:"动作已下架，请选择替代动作",icon:"none"});
     if (this.data.selecting) {
-      if (this.data.already) return;
       this.getOpenerEventChannel().emit('selected');
       wx.navigateBack();
       return;

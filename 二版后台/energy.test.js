@@ -19,10 +19,10 @@ test('静息公式和目标系数正确，减脂/维持/增肌不同，旧营养
   assert.equal(legacy.targets.carb,330); assert.equal(legacy.targets.protein,120);
 });
 test('已审核策略、人群、单位、下限和手动营养一致性均在服务器检查',()=> {
-  for (const b of [{age:17},{age:65},{height:1.75},{weight:150},{goal:'快速减脂'}]) assert.throws(()=>R.profile({...input,...b},nutrition));
+  for (const b of [{age:17},{age:65},{height:0},{weight:0},{goal:'快速减脂'}]) assert.throws(()=>R.profile({...input,...b},nutrition));
   assert.throws(()=>R.profile(input,{...nutrition,goalPolicy:{...E.defaults}}),/尚未发布/);
-  assert.throws(()=>R.profile({...input,sex:'女',height:150,weight:45,age:60,activity:'久坐'},nutrition),/下限/);
-  assert.throws(()=>R.profile({...input,estimate:false,targets:{kcal:2000,carb:100,protein:100,fat:50}},nutrition),/不一致/);
+  assert.throws(()=>R.profile({...input,sex:'女',height:150,weight:45,age:60,activity:'久坐'},nutrition),/复核阈值/);
+  assert.throws(()=>R.profile({...input,estimate:false,targets:{kcal:2000,carb:100,protein:100,fat:50}},nutrition),/差额/);
   const manual=R.profile({...input,estimate:false,targets:{kcal:2000}},nutrition); assert.equal(manual.targets.protein,100);assert.equal(manual.energy,null);
   assert.throws(()=>validate('nutrition',{...nutrition,goalPolicy:{...nutrition.goalPolicy,deficit:.8}}),/参数/);
 });
@@ -52,9 +52,10 @@ function plateau() {
   const a=saved(account());
   for(const d of ['2026-11-07','2026-11-09','2026-11-12','2026-11-14','2026-11-17','2026-11-20']) change(a,'measurement',{date:d,weight:70},config,new Date('2026-11-20T02:00:00Z'));
   for(const d of ['2026-11-12','2026-11-20']) change(a,'energyFeedback',{date:d,adherence:'基本按计划',wellbeing:'正常',waterChange:false},config,new Date('2026-11-20T02:00:00Z'));
+  change(a,'energyAssessment',{adherence:'基本按计划',wellbeing:'正常',waterStatus:'无影响'},config,new Date('2026-11-20T02:00:00Z'));
   return a;
 }
-test('两周各三天且执行反馈完整才提出调整，明日生效，历史不变',()=> {
+test('两周各三天且评估反馈确认后提出调整，明日生效，历史不变',()=> {
   const a=plateau(), now=new Date('2026-11-20T02:00:00Z'); const before=structuredClone(a.profile);
   const r=E.progress(a,nutrition.goalPolicy,'2026-11-20'); assert.deepEqual(r.counts,[3,3]);assert.equal(r.recommendation.delta,-100);
   change(a,'acceptEnergy',{id:r.recommendation.id},config,now);
@@ -64,7 +65,7 @@ test('两周各三天且执行反馈完整才提出调整，明日生效，历�
   assert.equal(E.progress(a,nutrition.goalPolicy,'2026-11-21').recommendation,null);
 });
 test('记录不足、反馈不明、波动、不适、冷却期和过时建议不减餐',()=> {
-  for(const mutate of [a=>a.measurements={},a=>a.energyFeedback={},a=>a.energyFeedback['2026-11-20'].waterChange=true,a=>a.energyFeedback['2026-11-20'].adherence='偏多',a=>a.energyFeedback['2026-11-20'].wellbeing='明显饥饿或疲劳',a=>a.profile.effectiveFrom='2026-11-18']) {
+  for(const mutate of [a=>a.measurements={},a=>delete a.energyAssessment,a=>a.energyAssessment.waterStatus='仍有影响',a=>a.energyAssessment.adherence='偏多',a=>a.energyAssessment.wellbeing='明显饥饿或疲劳',a=>a.profile.effectiveFrom='2026-11-18']) {
     const a=plateau();mutate(a);assert.equal(E.progress(a,nutrition.goalPolicy,'2026-11-20').recommendation,null);
   }
   const a=plateau(), id=E.progress(a,nutrition.goalPolicy,'2026-11-20').recommendation.id;

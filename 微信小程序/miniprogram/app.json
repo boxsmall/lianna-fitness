@@ -11,15 +11,15 @@
     "pages/account/index"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#fbfaf7",
+    "navigationBarBackgroundColor": "#f8f9ff",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "练哪",
-    "backgroundColor": "#fbfaf7"
+    "backgroundColor": "#f8f9ff"
   },
   "tabBar": {
     "color": "#596476",
     "selectedColor": "#2448d8",
-    "backgroundColor": "#fbfaf7",
+    "backgroundColor": "#eef1fb",
     "borderStyle": "white",
     "list": [
       {
@@ -30,7 +30,7 @@
       },
       {
         "pagePath": "pages/week/index",
-        "text": "计划",
+        "text": "训练",
         "iconPath": "assets/plan.png",
         "selectedIconPath": "assets/plan-on.png"
       },
@@ -46,7 +46,8 @@
         "iconPath": "assets/account.png",
         "selectedIconPath": "assets/account-on.png"
       }
-    ]
+    ],
+    "custom": true
   },
   "sitemapLocation": "sitemap.json"
 }

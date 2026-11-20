@@ -489,7 +489,7 @@ function build(store, options = {}) {
         version: c.version.foods,
         foods: c.foods.filter((f) => R.usable(f, b, c.risk))
       };
-    if (route === 'profile/preview') return { ...R.profile(b, c.nutrition), version: c.version.nutrition };
+    if (route === 'profile/preview') return { ...R.profile(b, c.nutrition, { preview: true }), version: c.version.nutrition };
     if (route === 'preview/meal') {
       const profile = R.profile(b.profile, c.nutrition);
       return {
@@ -540,7 +540,11 @@ function build(store, options = {}) {
     }
     need(actor && !actor.startsWith('op:'), '请先微信登录', 401);
     if (route === 'state') return store.account(actor);
-    if (route === 'energy/progress') return require('./energy').progress(store.account(actor), c.nutrition.goalPolicy);
+    if (route === 'energy/progress') {
+      for (const key of ['from','to']) if (b[key]) R.day(b[key]);
+      need(!b.from || !b.to || b.from <= b.to, '查询开始日期不能晚于结束日期');
+      return require('./energy').progress(store.account(actor), c.nutrition.goalPolicy, undefined, b);
+    }
     if (route === 'logout') {
       store.run('DELETE FROM sessions WHERE token=?', store.hash(token));
       return {};
@@ -597,7 +601,7 @@ function build(store, options = {}) {
       change(a, b.action, b.body, c);
       const stamp=M.now();
       if(b.action==='savePlan')store.run('INSERT OR IGNORE INTO plan_inputs VALUES(?,?,?,?)',actor,b.body.input.start,JSON.stringify(b.body.input),stamp);
-      if(b.action==='finish'){a.sessions[b.body.date].endedAt=stamp;Object.assign(a.history.at(-1),a.sessions[b.body.date])}
+      if(b.action==='finish'){const finished=require('../微信小程序/miniprogram/lib/training').select(a.sessions,b.body.date,b.body.sessionKey);finished.endedAt=stamp;Object.assign(a.history.at(-1),finished)}
       if(b.action==='saveMeal'){
         const meal=a.meals[b.body.date+'-'+b.body.index];meal.profileSnapshot=structuredClone(a.profile);meal.savedAt=stamp;
         if(b.body.generationId){const g=store.get('SELECT * FROM generations WHERE id=? AND owner=?',b.body.generationId,actor);need(g&&g.status==='成功交付','推荐记录不属于当前用户');const ids=(JSON.parse(g.output).items||[]).map(x=>x.id).sort().join(',');const actual=b.body.items.map(x=>x.id).sort().join(',');store.run('UPDATE generations SET adoption=?,object=? WHERE id=?',ids===actual?'已保存':'修改后保存',b.body.date+'-'+b.body.index,g.id);meal.generationId=g.id;}

@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 function fixture(){let page;let account={meals:{},history:[]};const calls=[];
  const api={credentials:()=>true,state:()=>account,asset:p=>p?'https://admin.yijiandot.com.cn'+p:'',login:async()=>account,refresh:async()=>account,request:async()=>[],run:async(p,f)=>{try{await f()}catch(e){p.setData({error:e.message})}},mutate:async(a,b)=>{calls.push({a,b});account.identity={nickname:b.nickname,avatar:'/avatars/'+'a'.repeat(48)}}};
- vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/pages/account/index.js'),'utf8'),{Page:p=>page=p,require:n=>n.endsWith('service')?api:n.endsWith('navigation')?{take:()=>null}:{byId:new Map()},wx:{showToast(){},getFileSystemManager:()=>({readFile:o=>o.success({data:'selected-image'})})}});
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../miniprogram/pages/account/index.js'),'utf8'),{Page:p=>page=p,require:n=>n.endsWith('service')?api:n.endsWith('navigation')?{take:()=>null}:n.endsWith('storage')?{read:()=>({favorites:[],owned:[]})}:{byId:new Map()},wx:{showToast(){},getFileSystemManager:()=>({readFile:o=>o.success({data:'selected-image'})})}});
  page.data=JSON.parse(JSON.stringify(page.data));page.setData=p=>Object.assign(page.data,p);return {page,calls};}
 test('昵称头像不自动获取，未确认不能上传，选择器返回不丢失编辑，确认后同步',async()=>{
  const {page,calls}=fixture();page.editIdentity();assert.equal(calls.length,0);

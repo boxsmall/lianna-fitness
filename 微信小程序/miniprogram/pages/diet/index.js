@@ -20,18 +20,38 @@ const foodTypes = [
 ];
 Page({
   follow: nav.follow,
-  goal(e) { this.setData({ 'form.goal': e.currentTarget.dataset.value }); },
+  goal(e) { this.setData({ 'form.goal': e.currentTarget.dataset.value, 'form.goalPercent': null }); this.queuePreview(); },
+  queuePreview() {
+    clearTimeout(this.previewTimer); const ticket = this.previewTicket = (this.previewTicket || 0) + 1;
+    this.setData({ targetPreview:null, previewError:'', macroDelta:'' });
+    if (this.data.mode !== 'energy') return;
+    this.previewTimer = setTimeout(async()=> {
+      const f=this.data.form;
+      if (!f.sex || !f.height || !f.weight || (f.estimate ? !f.age : !f.kcal)) return;
+      try {
+        const p=await api.request('profile/preview',this.profileArgs());
+        if(ticket!==this.previewTicket) return;
+        const before=this.lastPreview?.targets;
+        const delta=before && before.carb != null && p.targets.carb != null && ['carb','protein','fat'].map((k,i)=>['碳水','蛋白质','脂肪'][i]+' '+(p.targets[k]-before[k]>=0?'+':'')+(p.targets[k]-before[k])+'g').join(' · ');
+        this.lastPreview=p; this.setData({targetPreview:p,macroDelta:p.reviewRequired?'':delta||'', 'form.goalPercent': p.energy?.goalPercent ?? f.goalPercent});
+      } catch(e) { if(ticket===this.previewTicket)this.setData({previewError:e.message}); }
+    },250);
+  },
+  onHide() { clearTimeout(this.previewTimer); this.previewTicket=(this.previewTicket||0)+1; },
   explain() {
     const e = this.profile?.energy;
     api.alert(e ? '静息估算 ' + e.resting + ' 千卡 × 活动系数 ' + e.activityFactor + ' ≈ 维持消耗 ' + e.maintenance + ' 千卡。当前' + this.profile.goal + '饮食目标 ' + this.profile.targets.kcal + ' 千卡。已考虑通常训练，不再加回单次运动消耗。估算需结合体重趋势评估。' : '这是原已确认目标或已有专业目标。选择“帮我估算”可按当前阶段目标重新评估。');
   },
-  consume() {
-    api.run(this, async () => {
-      if (!(await api.confirm('按实际份量记为已吃', '请先保存实际吃下的食材与克数；确认后按这份搭配记入摄入记录。'))) return;
-      await api.mutate('consumeMeal', { date: this.data.date, index: this.data.index });
-      await this.loadMeal();
-    });
-  },
+  consume() { this.setData({actualOpen:true,actualDraft:(this.data.consumed?.rows || this.data.history?.rows || []).map(r=>({id:r.id,name:r.name,grams:r.grams}))}); },
+  actualGrams(e) { const rows=this.data.actualDraft.map(r=>r.id===e.currentTarget.dataset.id?{...r,grams:e.detail.value}:r);this.setData({actualDraft:rows}); },
+  closeActual() { this.setData({actualOpen:false}); },
+  saveActual() { return api.run(this,async()=> {
+    const items=this.data.actualDraft.map(r=>({id:r.id,locked:Number(r.grams)}));
+    if(this.data.actualDraft.some(r=>r.grams==='' || !Number.isFinite(Number(r.grams)) || Number(r.grams)<0))throw Error('请填写有效的实际克数');
+    if(!(await api.confirm('确认实际摄入','按填写的实际克数保存，仅更新已吃记录，计划搭配保持不变。')))return;
+    await api.mutate('consumeMeal',{date:this.data.date,index:this.data.index,items,version:this.data.result.version});
+    this.setData({actualOpen:false});await this.loadMeal();
+  }); },
   unconsume() {
     api.run(this, async () => { await api.mutate('consumeMeal', { date: this.data.date, index: this.data.index, remove: true }); await this.loadMeal(); });
   },
@@ -46,12 +66,15 @@ Page({
   screen(e) {
     this.setData({ mode: e.currentTarget.dataset.mode, error: '' });
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
+    this.queuePreview();
   },
   sex(e) {
     this.setData({ 'form.sex': e.currentTarget.dataset.value });
+    this.queuePreview();
   },
   estimate(e) {
     this.setData({ 'form.estimate': e.currentTarget.dataset.value === 1 });
+    this.queuePreview();
   },
   next() {
     const f = this.data.form;
@@ -60,10 +83,15 @@ Page({
       return;
     }
     this.setData({ mode: 'energy', error: '' });
+    this.queuePreview();
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
   },
   editRatios() {
-    this.setData({ ratioDraft: this.data.form.ratios, ratioOpen: true });
+    this.setData({ ratioDraft: this.data.form.ratios, ratioOpen: true, snackEnabled:split(this.data.form.ratios).length===4 });
+  },
+  toggleSnack(e) {
+    const enabled=!!e.detail.value;
+    this.setData({snackEnabled:enabled,ratioDraft:enabled?'25,35,30,10':'30,40,30'});
   },
   ratioInput(e) {
     this.setData({ ratioDraft: e.detail.value });
@@ -77,6 +105,7 @@ Page({
         ratios: split(this.data.ratioDraft).map(Number)
       });
       this.adopt(a.profile);
+      if(this.data.index>=a.profile.ratios.length)this.setData({index:0});
       this.setData({ ratioOpen: false });
       await this.loadMeal();
     });
@@ -88,6 +117,7 @@ Page({
       editing: false,
       legacy: !p.energyModel,
       pending: api.state()?.pendingEnergy || null,
+      goalHistory: [...(api.state()?.energyHistory || [])].reverse().map(p=>({date:p.effectiveFrom||'未记录日期',goal:p.goal||'原目标',...p.targets,reason:p.energy?.adjustment?.reason|| (p.estimate?'用户确认估算目标':'用户填写已有目标')})),
       allergenOptions: allergenOptions(p.allergens),
       meals: display.meals(p),
       form: {
@@ -147,6 +177,7 @@ Page({
     this.initial = q;
   },
   onShow() {
+    this.getTabBar?.()?.setData({selected:'diet',hidden:false});
     const q = nav.take('diet') || this.initial || {};
     this.initial = null;
     this.setData({
@@ -177,15 +208,19 @@ Page({
     const key = e.currentTarget.dataset.k;
     this.setData({
       ['form.' + key]: e.detail.value,
+      'form.macroResolution':null,
+      ...(key==='age'?{'form.ageAcknowledged':false}:{}),
       error: '',
       ...(key === 'allergens'
         ? { allergenOptions: allergenOptions(e.detail.value) }
         : {})
     });
+    this.queuePreview();
   },
   pick(e) {
     const { k, list } = e.currentTarget.dataset;
     this.setData({ ['form.' + k]: this.data[list][Number(e.detail.value)], error: '' });
+    this.queuePreview();
   },
   edit() {
     this.setData({ editing: true });
@@ -211,12 +246,27 @@ Page({
       age: Number(f.age),
       activity: f.activity,
       generalAdult: !!f.generalAdult
+      , ageAcknowledged: f.ageAcknowledged === true,
+      goalPercent: f.goal === '维持' ? 0 : f.goalPercent == null || f.goalPercent === '' ? undefined : Number(f.goalPercent),
+      macroResolution: f.macroResolution || undefined
     };
   },
   saveProfile() {
     api.run(this, async () => {
-      const args = this.profileArgs(),
-        profile = await api.request('profile/preview', args);
+      const args = this.profileArgs();
+      let profile = await api.request('profile/preview', args);
+      this.setData({targetPreview:profile});
+      if(profile.reviewRequired) { this.setData({error:profile.reviewReason});return; }
+      if(args.estimate && args.age>=65 && !args.ageAcknowledged) {
+        if(!(await api.confirm('确认估算局限',profile.energy.ageNotice+' 确认继续？')))return;
+        args.ageAcknowledged=true;this.setData({'form.ageAcknowledged':true});
+      }
+      if(!args.estimate && Math.abs(profile.macroDifference)>10) {
+        const choice=await new Promise(resolve=>wx.showActionSheet({itemList:['按营养合计更新总热量（'+(profile.targets.kcal+profile.macroDifference)+'千卡）','保留原总热量（差额'+profile.macroDifference+'千卡）'],success:r=>resolve(r.tapIndex),fail:()=>resolve(-1)}));
+        if(choice<0)return;
+        args.macroResolution=choice===0?'align':'keep';
+        profile=await api.request('profile/preview',args);
+      }
       args.version = profile.version;
       if (
         !(await api.confirm(
@@ -240,6 +290,7 @@ Page({
       await this.loadMeal();
     });
   },
+  toggleHistory() { this.setData({historyOpen:!this.data.historyOpen}); },
   async loadMeal() {
     this.generationId = undefined;
     const { index, date } = this.data;

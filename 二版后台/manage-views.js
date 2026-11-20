@@ -116,7 +116,7 @@ async function userPage() {
           .filter((m) => m.user === u.id)
           .map((m) => [
             m.date,
-            ["早餐", "午餐", "晚餐"][m.index] || m.key,
+            ["早餐", "午餐", "晚餐", "加餐"][m.index] || m.key,
             link("查看搭配", "meal/" + m.id),
           ]),
       ),
@@ -360,7 +360,7 @@ async function planPage() {
                   (s.actual?.[i.key] || [])
                     .map(
                       (v) =>
-                        v.value +
+                        (v.extra ? "加练 · " : "") + v.value +
                         " " +
                         v.unit +
                         (v.weight != null ? " / " + v.weight + " kg" : ""),
@@ -392,7 +392,7 @@ async function planPage() {
 }
 function mealsPage() {
   const rows = filtered(meals(), (m) => m.id + m.user + m.date, {
-    meal: (m) => ["早餐", "午餐", "晚餐"][m.index],
+    meal: (m) => ["早餐", "午餐", "晚餐", "加餐"][m.index],
   });
   return (
     title(
@@ -400,7 +400,7 @@ function mealsPage() {
       "用户最终保存的搭配；与 AI 推荐结果分别追溯。",
       can("content.view") ? btn("食材与规则", "food-config") : "",
     ) +
-    `<section class="section">${filters([["meal", "全部餐次", ["早餐", "午餐", "晚餐"]]])}${page(rows, ["记录", "用户", "日期 / 餐次", "营养汇总", "食材 / 规则版本", "AI 关联"], (m) => [link(m.id, "meal/" + m.id), userLink(m.user), m.date + " / " + (["早餐", "午餐", "晚餐"][m.index] || m.key), esc(JSON.stringify(m.actual || m.total || m.totals || {})), "v" + m.foodsVersion + " / v" + m.nutritionVersion, m.generationId ? link("查看生成", "generation/" + m.generationId) : "手动搭配或旧记录未关联"])}</section>`
+    `<section class="section">${filters([["meal", "全部餐次", ["早餐", "午餐", "晚餐", "加餐"]]])}${page(rows, ["记录", "用户", "日期 / 餐次", "营养汇总", "食材 / 规则版本", "AI 关联"], (m) => [link(m.id, "meal/" + m.id), userLink(m.user), m.date + " / " + (["早餐", "午餐", "晚餐", "加餐"][m.index] || m.key), esc(JSON.stringify(m.actual || m.total || m.totals || {})), "v" + m.foodsVersion + " / v" + m.nutritionVersion, m.generationId ? link("查看生成", "generation/" + m.generationId) : "手动搭配或旧记录未关联"])}</section>`
   );
 }
 function mealPage() {

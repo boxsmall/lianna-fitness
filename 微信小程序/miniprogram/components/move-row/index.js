@@ -15,7 +15,7 @@ Component({
       });
     },
     select() {
-      if (!this.data.move.already) this.triggerEvent('select', { id: this.data.move.id });
+      this.triggerEvent('select', { id: this.data.move.id });
     },
     save() {
       if (toggleFavorite(this.data.move.id)) this.triggerEvent('changed');

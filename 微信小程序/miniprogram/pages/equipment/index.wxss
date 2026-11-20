@@ -20,3 +20,5 @@
 .screen{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
 
 .common{margin:20px -3px 14px}.common .tile{min-height:124px}.common .tile-name{font-size:14px}
+
+.tiles{gap:12px;margin:20px 0 14px}.tile{width:calc(50% - 6px);margin:0;padding:15px;border:1px solid #e0e5f0;border-radius:18px;background:white;min-height:130px}.tile image{height:72px;mix-blend-mode:multiply}.tile.on{background:#e2e8ff;border-color:#a7b6e2}.tile image.check{position:absolute;right:12px;top:12px;width:16px;height:16px;background:transparent}.common{margin:24px 0}.common .tile-name{font-size:13px}.tile-name{font-weight:500}.screen>.primary{margin-top:24px}.mode,.dropdown,.search{border-radius:12px;font-size:13px;border-width:1px}
