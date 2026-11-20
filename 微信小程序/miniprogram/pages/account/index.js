@@ -22,7 +22,7 @@ Page({
         const a = await api.refresh();
         const meals = Object.entries(a.meals).map(([id, m]) => ({
           id,
-          name: m.date + ' ' + ['早餐', '午餐', '晚餐'][m.index]
+          name: m.date + ' ' + ['早餐', '午餐', '晚餐', '加餐'][m.index]
         }));
         this.setData({
           history: a.history

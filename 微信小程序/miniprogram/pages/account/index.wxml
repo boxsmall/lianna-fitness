@@ -2,7 +2,7 @@
 <view class="menu-row between"><text>周训练计划</text><button class="link" data-page="week" bindtap="follow">查看</button></view>
 <view class="menu-row between"><text>我的收藏</text><button class="link" data-page="saved" bindtap="follow">查看</button></view>
 <view class="menu-row between"><text>我的器械</text><button class="link" data-page="equipment" data-mode="owned" bindtap="follow">查看</button></view>
-<view class="menu-row between"><text>饮食资料</text><button class="link" data-page="diet" data-mode="profile" bindtap="follow">查看</button></view>
+<view class="menu-row between"><text>目标与体重趋势</text><button class="link" data-page="progress" bindtap="follow">查看</button></view><view class="menu-row between"><text>饮食资料</text><button class="link" data-page="diet" data-mode="profile" bindtap="follow">查看</button></view>
 <view class="menu-row between"><text>训练记录</text><button class="link" data-mode="history" bindtap="screen">查看</button></view>
 <button wx:if="{{logged}}" class="link" data-mode="feedback" bindtap="screen">反馈与账号</button></block>
 <block wx:elif="{{mode==='login'}}"><view style="padding:45px 0 26px;text-align:center"><image src="/assets/icon.svg" style="width:65px;height:70px" mode="aspectFit"/><view class="title" style="margin:22px 0 12px">让进步跟着你</view><view class="muted">同步你的器械、收藏和训练计划。<view>在另一台设备，也能接着练。</view></view></view><view class="vcard"><view class="strong">首次登录后</view><view class="subtitle">本地收藏与账号收藏合并，重复动作自动去重。</view></view><button wx:if="{{!logged||needsLogin}}" class="primary" bindtap="login">微信登录</button><block wx:else><button class="primary" bindtap="sync">同步收藏与器械</button><button class="link wide" bindtap="logout">退出账号</button></block><button class="link wide" data-page="pick" bindtap="follow">继续浏览动作</button></block>

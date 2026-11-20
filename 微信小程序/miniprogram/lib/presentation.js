@@ -15,13 +15,11 @@ function weekDays(date) {
   });
 }
 function meals(profile) {
-  return ['早餐', '午餐', '晚餐'].map((name, index) => {
+  return ['早餐', '午餐', '晚餐', '加餐'].slice(0,profile.ratios.length).map((name, index) => {
     const meal = { name, index, share: profile.ratios[index] };
     for (const [key, total] of Object.entries(profile.targets)) {
-      const [first, second] = profile.ratios.map((ratio) =>
-        Math.round((total * ratio) / 100)
-      );
-      meal[key] = [first, second, Math.round(total) - first - second][index];
+      const values = require('./nutrition').allocate(total, profile.ratios);
+      meal[key] = values[index];
     }
     return meal;
   });

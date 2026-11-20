@@ -6,9 +6,20 @@ const display = require('../../lib/presentation');
 const names = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 Page({
   follow: nav.follow,
+  pauseOnExit() {
+    const date = this.data.date, s = api.state()?.sessions?.[date];
+    if (s?.status === '训练中' && s.timer?.running) api.mutate('pause', { date }).catch(()=>{});
+  },
+  onHide() { if (this.heartbeatTimer) clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; this.pauseOnExit(); },
+  onUnload() { this.onHide(); },
+  workoutType(e) { return api.run(this, async()=> { await this.commit('workoutType', { type: ['', 'resistance', 'bodyweight'][Number(e.detail.value)] }); }); },
   mode(e) {
+    this.pauseOnExit();
     if (e.currentTarget.dataset.mode === 'create') {
       this.useOwnedGear = true;
+      this.goalEdited = false;
+      const goal = api.state()?.stageGoal;
+      if (goal) this.setData({ goal: goal === '维持' ? '日常健身' : goal });
       this.setData({ gear: [...storage.read().owned], preview: null });
     }
     this.setData({
@@ -21,6 +32,7 @@ Page({
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
   },
   option(e) {
+    if (e.currentTarget.dataset.k === 'goal') this.goalEdited = true;
     this.setData({
       [e.currentTarget.dataset.k]: e.currentTarget.dataset.v,
       preview: null
@@ -54,6 +66,7 @@ Page({
     this.closeDate();
   },
   data: {
+    workoutTypes: ['不估算 / 混合训练', '常规多动作抗阻训练', '常规自重训练'],
     mode: 'week',
     advanced: false,
     goals: ['增肌', '减脂', '日常健身'],
@@ -89,6 +102,14 @@ Page({
     });
   },
   async onShow() {
+    if (typeof setInterval === 'function' && !this.heartbeatTimer) this.heartbeatTimer = setInterval(async()=> {
+      const date = this.data.date, s = api.state()?.sessions?.[date];
+      if (this.data.busy || this.beating || this.data.mode !== 'session' || !s?.timer?.running || s.status !== '训练中') return;
+      this.beating = true;
+      try { const a = await api.mutate('heartbeat', { date }); if (this.data.date === date) this.setData({ session: a.sessions[date], timerSeconds: Math.round(a.sessions[date].timer.seconds) }); }
+      catch(e) { this.setData({ error: '计时同步失败，请恢复网络后确认继续。' }); }
+      finally { this.beating = false; }
+    }, 30000);
     const intent = nav.take('week');
     if (intent) {
       const date = intent.date || (intent.add ? this.data.date : '') || api.localDate();
@@ -114,6 +135,7 @@ Page({
         this.setData({ error: e.message });
       }
     if (this.useOwnedGear) this.setData({ gear: [...storage.read().owned] });
+    if (api.state()?.stageGoal && !this.goalEdited) this.setData({ goal: api.state().stageGoal === '维持' ? '日常健身' : api.state().stageGoal });
     this.draw();
     if (intent?.add) await this.add();
   },
@@ -182,6 +204,7 @@ Page({
       warm: items.filter((m) => m.pattern === '热身'),
       mainItems: items.filter((m) => m.pattern !== '热身'),
       session: s || null,
+      timerSeconds: Math.round(s?.timer?.seconds || 0),
       items,
       totalMinutes: Math.ceil((time.total || 0) / 60),
       hasWeek: !!a?.weeks[start],
@@ -299,16 +322,19 @@ Page({
     this.draw();
   },
   week(e) {
+    this.pauseOnExit();
     const start = api.shift(this.data.start, Number(e.currentTarget.dataset.n));
     this.setData({ start, date: start, preview: null });
     this.draw();
   },
   select(e) {
+    this.pauseOnExit();
     this.setData({ date: e.currentTarget.dataset.date, mode: 'session' });
     wx.pageScrollTo({ scrollTop: 0, duration: 0 });
     this.draw();
   },
   trainingDate(e) {
+    this.pauseOnExit();
     const date = e.detail.value;
     this.setData({ date, start: api.monday(date), preview: null });
     this.draw();

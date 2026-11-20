@@ -77,7 +77,7 @@ function open(file) {
   function account(id) {
     const r = get('SELECT rev,value FROM accounts WHERE id=?', id);
     need(r, '请重新登录', 401);
-    return { rev: r.rev, ...JSON.parse(r.value) };
+    return require('./energy').effective({ rev: r.rev, ...JSON.parse(r.value) });
   }
   function ensure(id) {
     run(

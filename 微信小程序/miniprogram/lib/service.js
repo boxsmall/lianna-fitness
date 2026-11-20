@@ -3,6 +3,7 @@ const apiOrigin = 'https://admin.yijiandot.com.cn';
 const sessionKey = 'lianna.session.v2';
 const storage = require('./storage');
 let account = null;
+let mutationQueue = Promise.resolve();
 function credentials() {
   return wx.getStorageSync(sessionKey) || null;
 }
@@ -116,7 +117,16 @@ async function sendPending() {
     throw e;
   }
 }
-async function mutate(action, body) {
+function mutate(action, body) {
+  const owner = credentials()?.accountId;
+  const task = mutationQueue.then(() => {
+    if (credentials()?.accountId !== owner) throw new Error('账号已切换，请重新操作');
+    return performMutation(action, body);
+  });
+  mutationQueue = task.catch(() => {});
+  return task;
+}
+async function performMutation(action, body) {
   if (!credentials()) throw Error('请先登录');
   if (wx.getStorageSync(pendingKey())) await sendPending();
   if (!account) await refresh();

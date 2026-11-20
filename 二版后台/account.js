@@ -1,11 +1,14 @@
 'use strict';
 const R = require('./rules');
 const { need } = R;
+const E = require('./energy'), W = require('./workout-energy');
 function prepare(a, input, c) {
   const args = { ...input, anchor: Object.keys(a.weeks).sort()[0] || input.start };
   return R.plan(args, c, a.prefs, a.sessions);
 }
-function change(a, action, b, c) {
+function change(a, action, b, c, now = new Date()) {
+  const today = E.date(now), time = new Date(now).getTime();
+  E.effective(a, today);
   const s = a.sessions[b.date],
     workout = () => {
       need(s, '此日没有训练');
@@ -54,6 +57,7 @@ function change(a, action, b, c) {
       gear: p.gear,
       version: p.version
     };
+    if (!a.stageGoal) a.stageGoal = p.goal === '日常健身' ? '维持' : p.goal;
   } else if (action === 'move') {
     workout();
     need(s.status === '待训练', '训练开始后不能调课');
@@ -82,7 +86,23 @@ function change(a, action, b, c) {
       s.snapshot = structuredClone(s.items);
       s.actual = {};
       s.status = '训练中';
+      s.startedAt = new Date(now).toISOString();
+      s.timer = { seconds: 0, running: true, lastBeat: time };
+      const recent = Object.values(a.measurements || {}).filter(x=>x.date<=today).sort((x,y)=>y.date.localeCompare(x.date))[0];
+      s.energyPerson = a.profile ? { age: a.profile.age, weight: recent?.weight || a.profile.weight } : null;
     }
+  } else if (action === 'workoutType') {
+    workout();
+    need(s.status === '待训练', '训练开始后不能改变估算类型');
+    need(b.type === '' || Object.hasOwn(W.types, b.type), '活动类型无效');
+    s.workoutType = b.type;
+  } else if (['heartbeat', 'pause', 'resume'].includes(action)) {
+    workout();
+    need(s.status === '训练中', '请先开始训练');
+    s.timer ||= { seconds: 0, running: false, lastBeat: time };
+    W.tick(s, time);
+    if (action === 'pause') s.timer.running = false;
+    if (action === 'resume') { s.timer.running = true; s.timer.lastBeat = time; }
   } else if (action === 'record') {
     workout();
     need(s.status === '训练中', '请先开始训练');
@@ -104,6 +124,10 @@ function change(a, action, b, c) {
     workout();
     need(s.status === '训练中', '请先开始训练');
     s.status = '已完成';
+    W.tick(s, time);
+    if (s.timer) s.timer.running = false;
+    s.endedAt = new Date(now).toISOString();
+    s.energyEstimate = W.estimate(s);
     a.history.push(structuredClone(s));
   } else if (action === 'add' || action === 'addMany') {
     R.day(b.date);
@@ -137,7 +161,7 @@ function change(a, action, b, c) {
     target.timing = R.timing(target.items);
     a.sessions[b.date] = target;
     if (!a.weeks[week]) a.weeks[week] = {
-      goal: '日常健身', days: 1, minutes: target.budget, gear: [...gear],
+      goal: a.stageGoal && a.stageGoal !== '维持' ? a.stageGoal : '日常健身', days: 1, minutes: target.budget, gear: [...gear],
       source: 'manual', version: { actions: c.version.actions, templates: c.version.templates }
     };
     if (a.weeks[week].source === 'manual') a.weeks[week].days = Object.keys(a.sessions).filter(d => R.monday(d) === week).length;
@@ -210,8 +234,50 @@ function change(a, action, b, c) {
       target.timing = R.timing(target.items);
     }
   } else if (action === 'profile') {
-    a.profile = R.profile(b, c.nutrition);
+    if (b.energyModel === 'goal-v1') need(b.version === c.version.nutrition, '营养规则已变化，请重新预览并确认', 409);
+    const next = R.profile(b, c.nutrition);
+    if (a.profile) (a.energyHistory ||= []).push(structuredClone(a.profile));
+    a.profile = next;
     a.profile.version = c.version.nutrition;
+    a.profile.effectiveFrom = today;
+    if (a.profile.goal) a.stageGoal = a.profile.goal;
+    delete a.pendingEnergy;
+  } else if (action === 'profileRatios') {
+    need(a.profile, '请先保存饮食目标');
+    const checked = R.profile({ ...a.profile, estimate: false, goal: undefined, energyModel: undefined, ratios: b.ratios }, c.nutrition);
+    a.profile.ratios = checked.ratios;
+    if (a.pendingEnergy) a.pendingEnergy.profile.ratios = [...checked.ratios];
+  } else if (action === 'measurement') {
+    R.day(b.date);
+    need(b.date <= today && b.date >= E.shift(today, -365), '请选择最近一年内的日期');
+    need(Number.isFinite(b.weight) && b.weight >= 25 && b.weight <= 350, '请填写25至350千克之间的体重');
+    if (b.waist != null) need(Number.isFinite(b.waist) && b.waist >= 30 && b.waist <= 250, '腰围须为30至250厘米');
+    (a.measurements ||= {})[b.date] = { date: b.date, weight: b.weight, waist: b.waist ?? null };
+  } else if (action === 'energyFeedback') {
+    R.day(b.date);
+    need(b.date <= today && b.date >= E.shift(today, -13), '请填写最近两周的执行反馈');
+    need(['基本按计划','偏多','偏少','未记录'].includes(b.adherence) && ['正常','明显饥饿或疲劳','训练表现下降'].includes(b.wellbeing), '请选择执行情况与身体感受');
+    (a.energyFeedback ||= {})[b.date] = { date: b.date, adherence: b.adherence, wellbeing: b.wellbeing, waterChange: b.waterChange === true };
+  } else if (action === 'acceptEnergy') {
+    const result = E.progress(a, c.nutrition.goalPolicy, today), r = result.recommendation;
+    need(r && r.id === b.id, '调整建议已变化，请刷新后重新确认');
+    const profile = structuredClone(a.profile);
+    profile.targets = r.targets;
+    profile.effectiveFrom = r.effectiveFrom;
+    profile.energy.difference = r.targets.kcal - profile.energy.maintenance;
+    profile.energy.adjustment = { delta: r.delta, reason: result.reason, acceptedAt: new Date(now).toISOString(), policyVersion: c.version.nutrition };
+    (a.energyHistory ||= []).push(structuredClone(a.profile));
+    a.pendingEnergy = { profile, effectiveFrom: r.effectiveFrom };
+  } else if (action === 'cancelEnergy') {
+    need(a.pendingEnergy, '没有待生效的调整');
+    delete a.pendingEnergy;
+  } else if (action === 'consumeMeal') {
+    R.day(b.date);
+    need(b.date <= today, '不能提前记为已吃');
+    const meal = a.meals[b.date + '-' + b.index];
+    need(meal, '请先保存实际份量的搭配');
+    if (b.remove) delete (a.consumedMeals ||= {})[b.date + '-' + b.index];
+    else (a.consumedMeals ||= {})[b.date + '-' + b.index] = { ...structuredClone(meal), confirmedAt: new Date(now).toISOString() };
   } else if (action === 'saveMeal') {
     need(a.profile, '请先保存饮食资料');
     R.day(b.date);

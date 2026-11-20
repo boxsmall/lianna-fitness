@@ -7,6 +7,7 @@
     "pages/detail/index",
     "pages/week/index",
     "pages/diet/index",
+    "pages/progress/index",
     "pages/account/index"
   ],
   "window": {

@@ -263,7 +263,7 @@ function data(s, p, b = {}) {
       )
       .filter((a) => inScope(s, p, a.id));
     result.users = rows.map((a) => {
-      const v = parse(a.value),
+      const v = cleanSnapshot(parse(a.value), false),
         plans = Object.entries(v.weeks || {}).map(([start, w]) => ({
           id: "P" + a.uid.slice(1) + "_" + start,
           start,
@@ -483,6 +483,7 @@ function endpoint(s, actor, action, b, req) {
     }
     return {
       profile,
+      ...(b.sensitive ? { measurements: a.measurements || {}, energyHistory: a.energyHistory || [], pendingEnergy: a.pendingEnergy || null, energyFeedback: a.energyFeedback || {} } : {}),
       events: events.map((e) => ({
         id: e.id,
         at: e.at,
@@ -761,6 +762,11 @@ function endpoint(s, actor, action, b, req) {
 function cleanSnapshot(v, sensitive) {
   if (!sensitive) {
     v.profile = v.profile ? { redacted: true } : null;
+    for (const k of ['measurements', 'energyHistory', 'pendingEnergy', 'energyFeedback', 'consumedMeals']) delete v[k];
+    for (const s of [...Object.values(v.sessions || {}), ...(v.history || [])]) {
+      delete s.energyPerson;
+      delete s.energyEstimate;
+    }
     for (const m of Object.values(v.meals || {})) {
       delete m.profile;
       delete m.profileSnapshot;

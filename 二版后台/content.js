@@ -47,6 +47,7 @@ const defaults = {
   },
   foods: require('./foods.json'),
   nutrition: {
+    goalPolicy: require('./energy').defaults,
     macroRatio: [55, 20, 25],
     estimation: {
       approved: false,
@@ -182,6 +183,7 @@ function validate(module, value) {
       '模板组数无效'
     );
   } else if (module === 'nutrition') {
+    if (value.goalPolicy) require('./energy').validate(value.goalPolicy);
     if (value.macroRatio === null && !value.estimation?.approved) return;
     need(
       Array.isArray(value.macroRatio) &&

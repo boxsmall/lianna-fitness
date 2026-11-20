@@ -9,7 +9,7 @@ const moves = new Map(
 );
 const goals = ['增肌', '减脂', '日常健身'];
 const metrics = ['kcal', 'carb', 'protein', 'fat'];
-const parts = ['早餐', '午餐', '晚餐'];
+const parts = ['早餐', '午餐', '晚餐', '加餐'];
 function need(ok, message, status = 400) {
   if (!ok) throw Object.assign(new Error(message), { status });
 }
@@ -210,13 +210,12 @@ function plan(input, content, prefs, existing = {}) {
   };
 }
 function mealTarget(profile, index) {
-  integer(index, 0, 2, '餐次无效');
+  integer(index, 0, profile.ratios.length - 1, '餐次无效');
   const result = {};
   for (const k of metrics) {
     const total = profile.targets[k];
-    const first = Math.round((total * profile.ratios[0]) / 100),
-      second = Math.round((total * profile.ratios[1]) / 100);
-    result[k] = [first, second, Math.round(total) - first - second][index];
+    const values = require('../微信小程序/miniprogram/lib/nutrition').allocate(total, profile.ratios);
+    result[k] = values[index];
   }
   return result;
 }
@@ -246,10 +245,10 @@ function profile(input, rules) {
   positive(weight, '请填写有效体重');
   need(
     Array.isArray(ratios) &&
-      ratios.length === 3 &&
+      [3, 4].includes(ratios.length) &&
       ratios.every((n) => Number.isInteger(n) && n > 0) &&
       ratios.reduce((a, b) => a + b, 0) === 100,
-    '三餐比例之和须为 100%'
+    '请填写三餐或三餐加加餐比例，合计须为 100%'
   );
   need(
     [allergens, avoid].every(
@@ -258,16 +257,26 @@ function profile(input, rules) {
     '过敏原或忌口无效'
   );
   const targets = { ...input.targets };
+  let energy;
+  const goalMode = input.energyModel === 'goal-v1' || !!input.goal;
   if (input.estimate) {
     need(rules.estimation?.approved, '尚无已审核的能量估算规则，可填写已有目标');
     integer(input.age, 18, 120, '通用估算仅适用于成年人');
     need(input.generalAdult === true, '请使用专业人员提供的目标');
     const e = rules.estimation;
     need(Object.hasOwn(e.activity, input.activity), '请选择日常活动水平');
-    targets.kcal = Math.round(
-      (weight * e.weight + height * e.height + input.age * e.age + e.offset[sex]) *
-        e.activity[input.activity]
-    );
+    const resting = weight * e.weight + height * e.height + input.age * e.age + e.offset[sex];
+    need(Number.isFinite(resting) && resting > 0, '静息能量无效，请核对身体资料或计算规则');
+    const maintenance = resting * e.activity[input.activity];
+    targets.kcal = Math.round(maintenance);
+    if (goalMode) {
+      const result = require('./energy').calculate(input, rules, resting, maintenance);
+      Object.assign(targets, result.targets);
+      energy = result.energy;
+    } else {
+      // Legacy estimated profiles must not retain stale macros after energy changes.
+      for (const k of metrics.slice(1)) delete targets[k];
+    }
   }
   positive(targets.kcal, '请填写每日总千卡');
   const macroKeys = metrics.slice(1);
@@ -278,6 +287,12 @@ function profile(input, rules) {
     );
   }
   macroKeys.forEach((k) => positive(targets[k], '请完整填写三类营养目标'));
+  if (goalMode) require('./energy').checkTargets(targets);
+  if (input.goal) need(require('./energy').goals.includes(input.goal), '阶段目标无效');
+  if (input.targetWeight != null) {
+    need(Number.isFinite(input.targetWeight) && input.targetWeight >= 25 && input.targetWeight <= 350, '目标体重须为25至350千克');
+    if (input.estimate) need(input.targetWeight / (height/100)**2 >= 18.5, '目标体重过低，请使用专业目标');
+  }
   return {
     sex,
     height,
@@ -288,7 +303,9 @@ function profile(input, rules) {
     ratios,
     estimate: !!input.estimate,
     age: input.age,
-    activity: input.activity
+    activity: input.activity,
+    ...(goalMode ? { goal: input.goal, targetWeight: input.targetWeight ?? null, energyModel: 'goal-v1', resistance: input.resistance === true,
+      generalAdult: input.generalAdult === true, macroMode: input.estimate ? 'auto' : (macroKeys.every(k=>input.targets?.[k]==null) ? 'auto' : 'manual'), energy: energy || null } : {})
   };
 }
 function meal(profile, index, selected, foods, risk = {}) {

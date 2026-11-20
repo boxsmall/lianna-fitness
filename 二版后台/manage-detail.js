@@ -67,7 +67,7 @@ const actionNames = {
   swap: "替换动作",
   move: "调整课程日期",
   sets: "修改组次",
-  profile: "更新身体与饮食资料",
+  profile: "更新身体与饮食资料", profileRatios: "调整分餐比例", measurement: "记录体重", energyFeedback: "执行反馈", acceptEnergy: "接受饮食调整", cancelEnergy: "取消饮食调整", consumeMeal: "确认实际摄入", pause: "暂停计时", resume: "继续计时", workoutType: "选择活动类型",
   saveMeal: "保存餐次",
   start: "开始训练",
   finish: "完成训练",
@@ -105,18 +105,23 @@ async function completeUserPage() {
       kv([
         ["性别", p ? esc(p.sex || "未填写") : "授权后可查看"],
         ["身高", p ? numberText(p.height, " cm") : "授权后可查看"],
-        ["当前体重", p ? numberText(p.weight, " kg") : "授权后可查看"],
+        ["方案体重", p ? numberText(p.weight, " kg") : "授权后可查看"],
+        ["阶段目标", p ? esc(p.goal || '旧版未关联') : '授权后可查看'],
+        ["饮食目标", p ? numberText(p.targets?.kcal, ' 千卡') : '授权后可查看'],
+        ["维持消耗估算", p ? numberText(p.energy?.maintenance, ' 千卡') : '授权后可查看'],
+        ["生效日期", p ? esc(p.effectiveFrom || '历史目标') : '授权后可查看'],
+        ["计算版本", p ? numberText(p.version) : '授权后可查看'],
         ["注册来源", "微信小程序"],
         ["首次注册", time(u.created)],
         ["资料更新时间", time(events[0]?.at)],
       ]) +
-        `<div class="sensitive flex between top-space"><span>${p ? "过敏原：" + esc(listText(p.allergens)) + "；忌口：" + esc(listText(p.avoid)) : "身体资料、过敏原与忌口需授权后查看，访问会留痕。"}</span>${!p && can("users.sensitive") ? btn("授权查看", "reveal-user:" + u.id) : ""}</div><div class="top-space">${note("用户资料由用户更新。后台保留更新时间与历史，不直接覆盖身体数据。")}</div>`,
+        `<div class="sensitive flex between top-space"><span>${p ? "过敏原：" + esc(listText(p.allergens)) + "；忌口：" + esc(listText(p.avoid)) : "身体资料、过敏原与忌口需授权后查看，访问会留痕。"}</span>${!p && can("users.sensitive") ? btn("授权查看", "reveal-user:" + u.id) : ""}</div><div class="top-space">${note("用户资料由用户更新。后台保留更新时间与历史，不直接覆盖身体数据。") + (p ? `<details class="top-space"><summary>计算依据与历史目标</summary><pre>${esc(JSON.stringify({current:p.energy,history:d.energyHistory,pending:d.pendingEnergy,feedback:d.energyFeedback},null,2))}</pre></details>` : "")}</div>`,
     )}${section(
       "体重更新记录",
       p
         ? table(
             ["日期", "体重", "变化", "来源"],
-            events.map((e) => [
+            (Object.values(d.measurements || {}).length ? Object.values(d.measurements).sort((a,b)=>b.date.localeCompare(a.date)).map(r=>({at:r.date,after:{profile:{weight:r.weight}},before:{}})) : events).map((e) => [
               time(e.at),
               numberText(e.after.profile?.weight, " kg"),
               e.before.profile?.weight != null &&
@@ -509,7 +514,7 @@ async function completeMealPage() {
     shown = preview || m;
   return (
     title(
-      ["早餐", "午餐", "晚餐"][m.index] + "搭配 · " + m.date,
+      ["早餐", "午餐", "晚餐", "加餐"][m.index] + "搭配 · " + m.date,
       user(m.user).name + " / " + m.id + " / 已保存记录",
       g ? link("查看 AI 推荐", "generation/" + g.id) : "",
     ) +
@@ -1618,7 +1623,7 @@ const extraFilters = {
     ["source", "计划来源", ["规则生成", "用户自建"]],
     ["modified", "修改状态", ["已修改", "未修改"]],
   ],
-  meals: [["meal", "全部餐次", ["早餐", "午餐", "晚餐"]]],
+  meals: [["meal", "全部餐次", ["早餐", "午餐", "晚餐", "加餐"]]],
   generations: [
     [
       "scene",
@@ -1689,7 +1694,7 @@ filtered = function (rows, text, fields = {}) {
           (f.missing === "素材缺失" && x.id?.startsWith("N") && !x.media?.cover)
           ? f.missing
           : "";
-      if (k === "meal") return ["早餐", "午餐", "晚餐"][x.index];
+      if (k === "meal") return ["早餐", "午餐", "晚餐", "加餐"][x.index];
       if (k === "retry") return callsOf(x.id).length > 1 ? "有重试" : "无重试";
       if (k === "model" && r.page === "generations")
         return callsOf(x.id).some((c) => c.model === f.model) ? f.model : "";
@@ -1803,6 +1808,20 @@ async function foodsPage() {
     moduleReview("foods", c)
   );
 }
+const goalPolicyFields = [
+  ['deficit','减脂缺口比例（0.15 即 15%）',0.15], ['surplus','增肌盈余比例（0.05 即 5%）',0.05],
+  ['proteinPerKg','抗阻训练蛋白质 g/kg',1.6], ['fatPercent','抗阻训练脂肪供能 %',25],
+  ['floorMale','男性自动目标下限 千卡',1500], ['floorFemale','女性自动目标下限 千卡',1200],
+  ['adjustment','单次调整 千卡',100], ['observationDays','调整后观察天数',14], ['minSamples','每周最少体重记录天数',3]
+];
+function goalPolicyEditor(value) {
+  const p = value || {};
+  return '<h3 class="top-space">阶段目标与趋势调整</h3>' + note('减脂/维持/增肌共用阶段目标。通常训练已包含在活动系数中，不重复加回运动热量。通用自动分配限18至64岁、BMI 18.5至不足30的一般健康成人；低于下限时拦截，不机械抬高结果。') +
+    select('启用已核对的目标策略','goal-approved',['停用','启用'],p.approved?'启用':'停用') +
+    '<div class="form-grid three">' + goalPolicyFields.map(([key,label,fallback])=>field(label,'goal-'+key,p[key]??fallback,'number')).join('') + '</div>' +
+    field('目标策略依据与适用范围','goal-source',p.source || 'Mifflin-St Jeor https://pubmed.ncbi.nlm.nih.gov/2305711/；运动蛋白质 https://pmc.ncbi.nlm.nih.gov/articles/PMC5477153/；15%缺口、5%盈余为产品起点，结合实际趋势复核。','textarea');
+}
+let energyTrial = null, energyTrialInput = {goal:"减脂",sex:"男",age:30,height:175,weight:70,activity:"中等活动",resistance:"是"};
 async function nutritionPage() {
   if (!can("content.view")) return note("无营养规则权限");
   if (!config.nutrition)
@@ -1822,8 +1841,9 @@ async function nutritionPage() {
         .map(([k, v]) => field(k + "活动系数", "activity-" + k, v, "number"))
         .join(
           "",
-        )}</div>${field("依据与适用范围", "source", e.source, "textarea")}<button class="btn primary top-space">保存草稿</button></form>`,
+        )}</div>${field("依据与适用范围", "source", e.source, "textarea")}${goalPolicyEditor(v.goalPolicy)}<button class="btn primary top-space">保存草稿</button></form>`,
     ) +
+    section('目标饮食试算', `<form id="complete-energy-trial"><div class="form-grid three">${select('目标','goal',['减脂','维持','增肌'],energyTrialInput.goal)}${select('性别','sex',['男','女'],energyTrialInput.sex)}${field('年龄','age',energyTrialInput.age,'number')}${field('身高 cm','height',energyTrialInput.height,'number')}${field('体重 kg','weight',energyTrialInput.weight,'number')}${select('通常整周活动','activity',Object.keys(e.activity || {}),energyTrialInput.activity)}${select('通常抗阻训练','resistance',['是','否'],energyTrialInput.resistance)}</div><button class="btn primary">按已保存规则试算</button></form>` + (energyTrial ? kv([['维持消耗估算',energyTrial.energy.maintenance+' 千卡'],['每日'+energyTrial.goal+'饮食目标',energyTrial.targets.kcal+' 千卡'],['蛋白质 / 脂肪 / 碳水',[energyTrial.targets.protein,energyTrial.targets.fat,energyTrial.targets.carb].join(' / ')+' g']]) + note('通常训练已包括在活动系数中。本试算不写入用户账号。') : '')) +
     moduleReview("nutrition", c)
   );
 }
@@ -2017,14 +2037,18 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("submit", async (e) => {
   const form = e.target;
   if (
-    !["complete-nutrition", "complete-trial"].includes(form.getAttribute("id"))
+    !["complete-nutrition", "complete-trial", "complete-energy-trial"].includes(form.getAttribute("id"))
   )
     return;
   e.preventDefault();
   e.stopImmediatePropagation();
   const f = new FormData(form);
   try {
-    if (form.getAttribute("id") === "complete-nutrition") {
+    if (form.getAttribute('id') === 'complete-energy-trial') {
+      energyTrialInput = Object.fromEntries(f.entries());
+      const result = await api('preview/draft', {module:'nutrition', value:currentConfig('nutrition'), sample:{profile:{energyModel:'goal-v1',estimate:true,generalAdult:true,resistance:f.get('resistance')==='是',goal:f.get('goal'),sex:f.get('sex'),age:Number(f.get('age')),height:Number(f.get('height')),weight:Number(f.get('weight')),activity:f.get('activity'),ratios:[30,40,30]},index:1,items:[]}});
+      energyTrial = result.profile; await render();
+    } else if (form.getAttribute("id") === "complete-nutrition") {
       const value = structuredClone(currentConfig("nutrition"));
       value.macroRatio = [0, 1, 2].map((i) => Number(f.get("ratio" + i)));
       for (const k of ["weight", "height", "age"])
@@ -2035,12 +2059,15 @@ document.addEventListener("submit", async (e) => {
         value.estimation.activity[k] = Number(f.get("activity-" + k));
       value.estimation.approved = f.get("approved") === "启用";
       value.estimation.source = f.get("source");
+      value.goalPolicy = { approved: f.get('goal-approved') === '启用', source: f.get('goal-source') };
+      for (const [key] of goalPolicyFields) value.goalPolicy[key] = Number(f.get('goal-'+key));
       await api("admin/draft", {
         module: "nutrition",
         base: config.nutrition.version,
         value,
       });
       config.nutrition = null;
+      energyTrial = null;
       await render();
       toast("规则草稿已保存");
     } else {
@@ -2343,7 +2370,7 @@ const editableForms = {
   "complete-move": "content.edit",
   "media-form": "content.edit",
   "schedule-form": "content.edit",
-  "complete-nutrition": "content.edit",
+  "complete-nutrition": "content.edit", "complete-energy-trial": "content.view",
   "complete-ai": "ai.edit",
 };
 const permissionActions = {

@@ -487,7 +487,7 @@ function build(store, options = {}) {
         version: c.version.foods,
         foods: c.foods.filter((f) => R.usable(f, b, c.risk))
       };
-    if (route === 'profile/preview') return R.profile(b, c.nutrition);
+    if (route === 'profile/preview') return { ...R.profile(b, c.nutrition), version: c.version.nutrition };
     if (route === 'preview/meal') {
       const profile = R.profile(b.profile, c.nutrition);
       return {
@@ -514,6 +514,7 @@ function build(store, options = {}) {
       if (['nutrition', 'foods'].includes(module)) {
         const p = R.profile(b.sample.profile, draft.nutrition);
         return {
+          profile: p,
           ...R.meal(p, b.sample.index, b.sample.items, draft.foods, c.risk),
           excluded: draft.foods
             .filter((f) => !R.usable(f, p, c.risk))
@@ -537,6 +538,7 @@ function build(store, options = {}) {
     }
     need(actor && !actor.startsWith('op:'), '请先微信登录', 401);
     if (route === 'state') return store.account(actor);
+    if (route === 'energy/progress') return require('./energy').progress(store.account(actor), c.nutrition.goalPolicy);
     if (route === 'logout') {
       store.run('DELETE FROM sessions WHERE token=?', store.hash(token));
       return {};
@@ -592,13 +594,12 @@ function build(store, options = {}) {
       change(a, b.action, b.body, c);
       const stamp=M.now();
       if(b.action==='savePlan')store.run('INSERT OR IGNORE INTO plan_inputs VALUES(?,?,?,?)',actor,b.body.input.start,JSON.stringify(b.body.input),stamp);
-      if(b.action==='start') a.sessions[b.body.date].startedAt=stamp;
       if(b.action==='finish'){a.sessions[b.body.date].endedAt=stamp;Object.assign(a.history.at(-1),a.sessions[b.body.date])}
       if(b.action==='saveMeal'){
         const meal=a.meals[b.body.date+'-'+b.body.index];meal.profileSnapshot=structuredClone(a.profile);meal.savedAt=stamp;
         if(b.body.generationId){const g=store.get('SELECT * FROM generations WHERE id=? AND owner=?',b.body.generationId,actor);need(g&&g.status==='成功交付','推荐记录不属于当前用户');const ids=(JSON.parse(g.output).items||[]).map(x=>x.id).sort().join(',');const actual=b.body.items.map(x=>x.id).sort().join(',');store.run('UPDATE generations SET adoption=?,object=? WHERE id=?',ids===actual?'已保存':'修改后保存',b.body.date+'-'+b.body.index,g.id);meal.generationId=g.id;}
       }
-      M.record(store,actor,b,before,a);
+      if (b.action !== 'heartbeat') M.record(store,actor,b,before,a);
       if (b.action === 'savePlan') store.audit(actor, '保存计划', {});
       const rev = a.rev + 1;
       delete a.rev;

@@ -72,3 +72,17 @@ test('会话过期后仍可以正常退出账号', async () => {
   await f.service.logout();
   assert.equal(f.values.has('lianna.session.v2'),false);
 });
+test('训练心跳与业务保存串行发送，不能覆盖待提交操作', async()=> {
+  const f=fixture({pending:false});await f.service.login();
+  await Promise.all([f.service.mutate('heartbeat',{date:'2026-11-20'}),f.service.mutate('measurement',{weight:70})]);
+  const changes=f.requests.filter(r=>r.route==='change');
+  assert.deepEqual(changes.slice(-2).map(x=>x.action),['heartbeat','measurement']);
+  assert.equal(changes.at(-1).rev,changes.at(-2).rev+1);
+});
+test('排队过程中换账号时拒绝把旧操作写到新账号',async()=> {
+  const f=fixture({pending:false});await f.service.login();
+  const pending=f.service.mutate('measurement',{weight:70});
+  f.values.set('lianna.session.v2',{accountId:'different',token:'other'});
+  await assert.rejects(pending,/账号已切换/);
+  assert.equal(f.requests.filter(r=>r.action==='measurement').length,0);
+});
