@@ -123,7 +123,7 @@ function pickView(filters, saved, limits) {
   const active = new Set(saved.active);
   const favorites = new Set(saved.favorites);
   const gearResult = training.filter(
-    (move) => !move.hidden && gearMatches(move, active)
+    (move) => !move.hidden && (gearMatches(move, active) || (filters.includeBodyweight && !move.gear.length))
   );
   const query = (filters.query || '').trim().toLowerCase();
   const named = (move) => (!filters.favoritesOnly || favorites.has(move.id)) && [move.name,move.part,move.muscle].join(' ').toLowerCase().includes(query);

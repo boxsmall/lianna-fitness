@@ -178,8 +178,14 @@ Page({
   },
   onShow() {
     this.getTabBar?.()?.setData({selected:'diet',hidden:false});
-    const q = nav.take('diet') || this.initial || {};
+    const intent = nav.take('diet'), owner = api.credentials()?.accountId || 'guest';
+    const q = intent || this.initial || {};
     this.initial = null;
+    if(this.viewOwner === owner && !intent && this.data.date===api.localDate() && ['profile','energy','meal'].includes(this.data.mode)) {
+      this.queuePreview();
+      return;
+    }
+    this.viewOwner = owner;
     this.setData({
       date: api.localDate(),
       index: Number(q.meal) || 0,
@@ -292,6 +298,7 @@ Page({
   },
   toggleHistory() { this.setData({historyOpen:!this.data.historyOpen}); },
   async loadMeal() {
+    this.weights = {};
     this.generationId = undefined;
     const { index, date } = this.data;
     const r = await api.request('foods', this.profile),
@@ -356,6 +363,7 @@ Page({
     });
   },
   async calculate() {
+    this.applyWeights();
     const d = this.data,
       r = await api.request('preview/meal', {
         profile: { ...this.profile, estimate: false },
@@ -412,6 +420,16 @@ Page({
     this.weights = this.weights || {};
     this.weights[id] = e.detail.value;
   },
+  applyWeights() {
+    const weights=this.weights || {};
+    const items=this.data.items.map(item=> {
+      if(!Object.prototype.hasOwnProperty.call(weights,item.id))return item;
+      const value=weights[item.id];
+      if(value==='' || !Number.isFinite(Number(value)) || Number(value)<0)throw Error('请输入有效克数');
+      return {...item,locked:Number(value)};
+    });
+    this.setData({items});this.weights={};
+  },
   row(e) {
     api.run(this, async () => {
       const { id, op } = e.currentTarget.dataset;
@@ -427,12 +445,14 @@ Page({
           throw Error('请输入有效克数');
         r.locked = Number(v);
       }
+      if(this.weights)delete this.weights[id];
       this.setData({ items });
       await this.calculate();
     });
   },
   save() {
     api.run(this, async () => {
+      await this.calculate();
       await api.mutate('saveMeal', {
         index: this.data.index,
         date: this.data.date,

@@ -39,8 +39,7 @@ function apply(pack) {
   if (!page) return;
   if (['pages/pick/index', 'pages/saved/index'].includes(page.route)) page.refresh();
   if (page.route === 'pages/detail/index' && page.move) {
-    const m = byId.get(page.move.sourceId);
-    page.onLoad({ id: page.move.sourceId });
+    page.onLoad({ id: page.move.sourceId, select:page.data.selecting?'1':'0', selected:page.data.selected?'1':'0', already:page.data.already?'1':'0' });
   }
 }
 function present(pack) {

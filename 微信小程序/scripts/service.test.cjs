@@ -3,11 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-function fixture({ confirm = true, nextId = 'same', pending = true } = {}) {
+function fixture({ confirm = true, nextId = 'same', pending = true, validSession = false } = {}) {
   const prefs = { owned: ['哑铃'], active: [], favorites: [] };
   const baseline = { ...prefs, favorites: ['0334'] };
   const values = new Map([
-    ['lianna.session.v2', { token: 'expired', accountId: 'same' }],
+    ['lianna.session.v2', { token: validSession ? 'fresh' : 'expired', accountId: 'same' }],
     ['lianna.preferences.account.same', { ...prefs, base: baseline, dirty: true }]
   ]);
   const cmd = { action: 'record', body: {}, rev: 0, requestId: 'pending-original' };
@@ -24,6 +24,7 @@ function fixture({ confirm = true, nextId = 'same', pending = true } = {}) {
     request(o) {
       const route = o.url.split('/api/')[1];
       requests.push({ route, ...o.data });
+      if (route === 'state' && validSession) return o.success({statusCode:200,data:{rev,prefs:baseline}});
       if (route === 'state' || route === 'logout') return o.success({statusCode:401,data:{error:'expired'}});
       if (route === 'login') return o.success({statusCode:200,data:{token:'fresh',accountId:nextId,state:{rev,prefs}}});
       assert.equal(o.header.Authorization, 'Bearer fresh');
@@ -51,6 +52,14 @@ test('过期重新登录重试原待提交操作，保留收藏删除的三方�
   assert.deepEqual(changes[1].body.base, f.baseline);
   assert.equal(f.values.has('lianna.pending.same'), false);
   assert.equal(f.values.get('lianna.session.v2').token,'fresh');
+});
+
+test('已有有效登录时也先同步本机新器械和收藏，再继续创建训练',async()=> {
+  const f=fixture({pending:false,validSession:true});
+  await f.service.login();
+  const sync=f.requests.find(r=>r.action==='sync');
+  assert.ok(sync);assert.equal(sync.body.merge,false);assert.deepEqual(sync.body.base,f.baseline);
+  assert.equal(sync.body.favorites.length,0);assert.deepEqual([...sync.body.owned],['哑铃']);
 });
 test('取消重新登录保留本地待提交记录', async () => {
   const f=fixture({confirm:false});

@@ -15,6 +15,7 @@ function change(a, action, b, c, now = new Date()) {
       need(s, '此日没有训练');
       need(b.sessionKey || T.onDate(a.sessions, b.date).length <= 1, '当天有多次训练，请先选择要操作的训练');
       need(s.status !== '已完成', '已完成训练仅可查看');
+      s.gear ||= [...(a.weeks[R.monday(s.date || b.date)]?.gear || a.prefs.owned)];
       return s;
     };
   if (action === 'identity') {
@@ -51,6 +52,8 @@ function change(a, action, b, c, now = new Date()) {
       '目录已更新，请重新预览',
       409
     );
+    for (const session of Object.values(p.sessions))
+      session.gear ||= [...(a.weeks[R.monday(session.date)]?.gear || a.prefs.owned)];
     for (const [key, old] of Object.entries(a.sessions)) if (p.dates.includes(old.date || key)) delete a.sessions[key];
     Object.assign(a.sessions, p.sessions);
     a.weeks[p.start] = {
@@ -64,8 +67,8 @@ function change(a, action, b, c, now = new Date()) {
   } else if (action === 'createSession') {
     R.day(b.date);
     need(b.goal == null || R.goals.includes(b.goal), '训练目标无效');
-    const week = R.monday(b.date), goal = b.goal || a.weeks[week]?.goal || (a.stageGoal === '维持' ? '日常健身' : a.stageGoal) || '日常健身';
-    const next = { key: require('node:crypto').randomUUID(), date: b.date, goal, type: '自行编排', items: [], budget: a.weeks[week]?.minutes || 30, status: '待训练', manual: true };
+    const week = R.monday(b.date), goal = b.goal || (a.stageGoal === '维持' ? '日常健身' : a.stageGoal) || a.weeks[week]?.goal || '日常健身';
+    const next = { key: require('node:crypto').randomUUID(), date: b.date, goal, gear: [...a.prefs.owned], type: '自行编排', items: [], budget: a.weeks[week]?.minutes || 30, status: '待训练', manual: true };
     next.timing = R.timing([]); T.put(a.sessions, next);
     a.weeks[week] ||= { goal, days: 1, minutes: next.budget, gear: [...a.prefs.owned], source: 'manual', version: { actions: c.version.actions, templates: c.version.templates } };
     a.weeks[week].days = new Set(T.all(a.sessions).filter(v=>R.monday(v.date)===week).map(v=>v.date)).size;
@@ -165,7 +168,7 @@ function change(a, action, b, c, now = new Date()) {
     if (s) workout();
     const ids = action === 'add' ? [b.id] : b.ids;
     need(Array.isArray(ids) && ids.length > 0 && ids.length <= 50, '请选择 1～50 个动作');
-    const week = R.monday(b.date), gear = a.weeks[week]?.gear || a.prefs.owned;
+    const week = R.monday(b.date), gear = s ? (s.gear || a.weeks[week]?.gear || a.prefs.owned) : a.prefs.owned;
     const additions = [];
     for (const id of ids) {
       const m = R.moves.get(id);
@@ -174,7 +177,7 @@ function change(a, action, b, c, now = new Date()) {
       need(meta?.visible !== false, '此动作已下架，请选择其他动作');
       const missing = R.missing({ ...m, gear: meta?.gear || m.gear, alternatives: meta?.alternatives || m.alternatives }, gear);
       need(!missing.length || b.confirmGear, '缺少' + missing.join('、') + '，请确认仍要加入');
-      const goal = s?.goal || a.weeks[week]?.goal || a.stageGoal;
+      const goal = s?.goal || (s ? a.weeks[week]?.goal : null) || a.stageGoal;
       additions.push(R.item(m.sourceId, meta, goal === '增肌' ? 3 : 2));
     }
     const target = s || {
@@ -184,7 +187,7 @@ function change(a, action, b, c, now = new Date()) {
       budget: a.weeks[week]?.minutes || 30,
       items: [],
       status: '待训练'
-      , goal: a.weeks[week]?.goal || (a.stageGoal === '维持' ? '日常健身' : a.stageGoal) || '日常健身'
+      , goal: (a.stageGoal === '维持' ? '日常健身' : a.stageGoal) || a.weeks[week]?.goal || '日常健身', gear: [...gear]
     };
     target.items.push(...additions);
     target.manual = true;
@@ -243,7 +246,7 @@ function change(a, action, b, c, now = new Date()) {
                 gear: next.gear || R.moves.get(next.id).gear,
                 alternatives: next.alternatives || R.moves.get(next.id).alternatives
               },
-              a.weeks[R.monday(target.date)]?.gear || a.prefs.owned
+              target.gear || a.weeks[R.monday(target.date)]?.gear || a.prefs.owned
             ).length,
           '没有可用的同模式替代动作'
         );
@@ -324,7 +327,10 @@ function change(a, action, b, c, now = new Date()) {
       if (b.items) {
         need(b.version === c.version.foods, '食材已更新，请重新载入后确认实际份量', 409);
         need(b.items.every(i=>i.locked != null), '请确认每种食材的实际克数');
-        actual = {...R.meal(meal.profileSnapshot || a.profile,b.index,b.items,c.foods,c.risk),date:b.date,foodsVersion:c.version.foods,profileSnapshot:structuredClone(meal.profileSnapshot || a.profile)};
+        const profile = meal.profileSnapshot || a.profile;
+        // Older meals have a target but no profile snapshot. Keep that meal's
+        // target even if its snack slot has since been removed.
+        actual = {...R.meal({...profile,targets:meal.target,ratios:[100]},0,b.items,c.foods,c.risk),index:b.index,date:b.date,foodsVersion:c.version.foods,profileSnapshot:structuredClone(profile)};
       }
       (a.consumedMeals ||= {})[b.date + '-' + b.index] = { ...actual, confirmedAt: new Date(now).toISOString() };
     }

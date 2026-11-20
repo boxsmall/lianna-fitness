@@ -47,7 +47,7 @@ Page({
       sessionItemCount: session?.items?.length || 0,
       sessionCount: daySessions.length,
       hasWeek: !!week,
-      gear: week?.gear?.join('、') || '徒手',
+      gear: (session?.gear || week?.gear || account?.prefs?.owned || []).join('、') || '徒手',
       planSummary: scheduled.length
         ? '已安排 ' +
           T.all(account?.sessions).filter(s=>s.date>=days[0].date && s.date<=days[6].date).length +

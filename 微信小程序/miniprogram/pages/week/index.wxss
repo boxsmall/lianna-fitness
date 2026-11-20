@@ -3,3 +3,8 @@
 .goal-note{display:flex;align-items:center;justify-content:space-between;margin:-18px 0 14px;font-size:11px;color:#626774}.goal-note .link{min-height:30px;font-size:11px}
 
 .exercise-editor .between>.heading{flex:1;min-width:0;margin:0;font-size:18px}.exercise-editor>.between{margin-bottom:20px}.editor-scroll{height:55vh}.editor-future{font-size:12px;margin:0 0 20px}.editor-future switch{transform:scale(.8);transform-origin:right center}.editor-actions{display:flex;gap:8px;margin:16px 0}.editor-actions .link{flex:1;min-height:44px;margin:0;border:1px solid #e1e5ef;border-radius:12px;background:#f8f9ff}.editor-actions .danger{color:#a13127}.candidate{padding:14px 0;border-top:1px solid #e3e7f0}.exercise-editor .fields{gap:12px}
+
+.week-calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6rpx; margin:24rpx 0; }
+.calendar-day { display:flex; flex-direction:column; align-items:center; gap:10rpx; padding:14rpx 0; background:#f3f5fa; border-radius:16rpx; color:#60687b; font-size:20rpx; }
+.calendar-day.on { background:#e9eeff; color:#2849dc; }
+.calendar-day .day-number { font-size:30rpx; font-weight:700; }

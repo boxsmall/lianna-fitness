@@ -24,17 +24,21 @@ Page({
   }); },
   sessionGoal(e) { return api.run(this,async()=>this.commit('sessionGoal',{goal:this.data.goals[Number(e.detail.value)]})); },
   energyField(e) { this.setData({ [e.currentTarget.dataset.k]: e.detail.value }); },
-  nameField(e) {this.setData({sessionName:e.detail.value});},
+  nameField(e) {
+    (this.nameDrafts ||= {})[this.data.sessionKey] = e.detail.value;
+    this.setData({sessionName:e.detail.value});
+  },
   toggleSessionSettings() {this.setData({sessionSettings:!this.data.sessionSettings});},
   closeSave() {this.setData({saveSheet:false});},
   saveTraining() {return api.run(this,async()=> {
     const name=(this.data.sessionName || '').trim();
     if(!name)throw Error('请填写训练名称');
     if(name!==(this.data.session.name || '今天的训练'))await this.commit('sessionName',{name});
+    if(this.nameDrafts)delete this.nameDrafts[this.data.sessionKey];
     this.setData({saveSheet:true});
   });},
   startSaved() {this.setData({saveSheet:false});return this.train({currentTarget:{dataset:{action:'start'}}});},
-  newToday() {this.setData({date:api.localDate(),sessionKey:'',start:api.monday(api.localDate())});return this.newSession();},
+  newToday() {this.pauseOnExit();this.setData({date:api.localDate(),sessionKey:'',start:api.monday(api.localDate())});return this.newSession();},
   mode(e) {
     this.pauseOnExit();
     if (e.currentTarget.dataset.mode === 'create') {
@@ -137,7 +141,7 @@ Page({
     const intent = nav.take('week');
     if (intent) {
       const date = intent.date || (intent.add ? this.data.date : '') || api.localDate();
-      if (intent.mode === 'create') this.useOwnedGear = true;
+      if (intent.mode === 'create') { this.useOwnedGear = true; this.goalEdited = false; }
       this.setData({
         mode: intent.add ? 'session' : (intent.mode || 'week'),
         start: api.monday(date),
@@ -178,6 +182,7 @@ Page({
       return {
         date: d,
         label: display.shortDate(d),
+        dayNumber: Number(d.slice(-2)),
         weekday: names[i],
         type: list.length > 1 ? list.length+' 次训练' : x?.type || '休息',
         active: d === date,
@@ -219,7 +224,7 @@ Page({
     const gear =
       this.data.mode === 'create'
         ? this.data.gear
-        : preview?.gear || a?.weeks[start]?.gear || this.data.gear;
+        : s?.gear || preview?.gear || a?.weeks[start]?.gear || this.data.gear;
     const gearImage = equipmentCatalog[gear[0]]?.img;
     this.setData({
       gearLabel: gear.join('、') || '徒手',
@@ -231,7 +236,7 @@ Page({
         minutes:Math.ceil((v.timing?.total||0)/60),count:v.items.filter(i=>i.pattern!=='热身').length,
         summary:v.items.filter(i=>i.pattern!=='热身').map(i=>i.name).join(' · ')
       }))),
-      sessionName:s?.key===this.data.sessionKey && this.data.sessionName!=null ? this.data.sessionName : s?.name || '今天的训练',
+      sessionName:(s?.status==='待训练' ? this.nameDrafts?.[s.key] : null) ?? (s?.key===this.data.sessionKey && this.data.sessionName!=null ? this.data.sessionName : s?.name || '今天的训练'),
       sessionSets:items.filter(m=>m.pattern!=='热身').reduce((n,m)=>n+m.sets,0),
       sessionCount:items.filter(m=>m.pattern!=='热身').length,
       sessionHasItems:items.length>0,
@@ -255,6 +260,7 @@ Page({
       timerSeconds: Math.round(s?.timer?.seconds || 0),
       items,
       totalMinutes: Math.ceil((time.total || 0) / 60),
+      overBudget: Math.max(0,Math.ceil((time.total || 0)/60) - (s?.budget || 0)),
       hasWeek: !!a?.weeks[start],
       manualDays: this.data.days > 4,
       addName: byId.get(this.data.addId)?.name || '',
@@ -458,8 +464,9 @@ Page({
         ))
       )
         return;
-      await this.commit('move', { to, swap: !!swapSessionKey, swapSessionKey });
-      this.setData({ start: api.monday(to), date: to });
+      const sessionKey = this.data.sessionKey;
+      await api.mutate('move', { date: old, sessionKey, to, swap: !!swapSessionKey, swapSessionKey });
+      this.setData({ start: api.monday(to), date: to, sessionKey, edit:null });
       this.draw();
     });
   },
@@ -529,7 +536,7 @@ Page({
   replacements() {
     api.run(this, async () => {
       const m = this.data.edit,
-        gear = api.state().weeks[this.data.start]?.gear || storage.read().owned;
+        gear = this.data.session?.gear || api.state().weeks[this.data.start]?.gear || storage.read().owned;
       const candidates = await api.request('replacements', { id: m.id, gear });
       this.setData({ candidates });
       if (!candidates.length)
@@ -543,7 +550,7 @@ Page({
         m = byId.get(id);
       if (!m) return;
       const gear =
-        api.state().weeks[this.data.start]?.gear || storage.read().owned;
+        this.data.session?.gear || api.state().weeks[this.data.start]?.gear || storage.read().owned;
       const missing = m.gear.filter(
         (g) =>
           !gear.includes(g) &&

@@ -55,7 +55,8 @@ async function login() {
   const previous = credentials();
   if (previous) {
     try {
-      return await refresh();
+      await refresh();
+      return await sync();
     } catch (e) {
       if (e.status !== 401) throw e;
     }

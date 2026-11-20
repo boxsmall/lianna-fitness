@@ -178,6 +178,7 @@ function plan(input, content, prefs, existing = {}) {
       key: randomUUID(),
       date,
       goal,
+      gear: [...gear],
       type,
       items,
       budget: minutes,
